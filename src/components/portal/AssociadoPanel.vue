@@ -163,6 +163,10 @@ onUnmounted(() => {
           <dt class="text-sm text-ink-soft">Associado desde</dt>
           <dd class="text-sm font-semibold text-ink">{{ formatarData(profile?.data_associacao) }}</dd>
         </div>
+        <div v-if="profile?.telefone" class="flex items-center justify-between border-b border-ink/8 pb-4">
+          <dt class="text-sm text-ink-soft">Telefone / WhatsApp</dt>
+          <dd class="text-sm text-ink">{{ profile.telefone }}</dd>
+        </div>
         <div class="flex items-center justify-between">
           <dt class="text-sm text-ink-soft">E-mail</dt>
           <dd class="text-sm text-ink">{{ profile?.email }}</dd>

@@ -39,6 +39,7 @@ const novaSenha = ref('')
 const novoNascimento = ref('')
 const novoAssociacao = ref('')
 const novoModalidade = ref('volei')
+const novoTelefone = ref('')
 const adicionando = ref(false)
 const addError = ref('')
 
@@ -75,6 +76,7 @@ async function adicionarAssociado() {
   if (novoNascimento.value) camposExtras.data_nascimento = novoNascimento.value
   if (novoAssociacao.value) camposExtras.data_associacao = novoAssociacao.value
   if (novoModalidade.value) camposExtras.modalidade = novoModalidade.value
+  if (novoTelefone.value) camposExtras.telefone = novoTelefone.value
 
   if (Object.keys(camposExtras).length) {
     // Aguarda o trigger criar o profile
@@ -90,6 +92,7 @@ async function adicionarAssociado() {
   novoNascimento.value = ''
   novoAssociacao.value = ''
   novoModalidade.value = 'volei'
+  novoTelefone.value = ''
   await carregar()
 }
 
@@ -300,7 +303,7 @@ function statusClasses(status) {
           </div>
         </div>
 
-        <div class="mt-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        <div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div>
             <label class="font-mono-label text-[9px] font-bold text-ink-soft">CPF</label>
             <input
@@ -327,6 +330,16 @@ function statusClasses(status) {
               type="date"
               class="mt-1 w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs text-ink outline-none focus:border-brand"
               @change="(e) => { a.data_associacao = e.target.value; salvarCampo(a, 'data_associacao', e.target.value) }"
+            />
+          </div>
+          <div>
+            <label class="font-mono-label text-[9px] font-bold text-ink-soft">Telefone / WhatsApp</label>
+            <input
+              :value="a.telefone"
+              type="tel"
+              placeholder="(47) 9 9999-9999"
+              class="mt-1 w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs text-ink outline-none focus:border-brand"
+              @change="(e) => { a.telefone = e.target.value; salvarCampo(a, 'telefone', e.target.value) }"
             />
           </div>
           <div>
@@ -397,6 +410,11 @@ function statusClasses(status) {
               <label class="font-mono-label text-[9px] font-bold text-ink-soft">Associado desde</label>
               <input v-model="novoAssociacao" type="date" class="mt-1 w-full rounded-xl border border-ink/15 bg-white px-3 py-2.5 text-sm text-ink outline-none focus:border-brand" />
             </div>
+          </div>
+          <div class="sm:col-span-2">
+            <label class="font-mono-label text-[9px] font-bold text-ink-soft">Telefone / WhatsApp</label>
+            <input v-model="novoTelefone" type="tel" placeholder="(47) 9 9999-9999"
+              class="mt-1 w-full rounded-xl border border-ink/15 bg-white px-4 py-2.5 text-sm text-ink outline-none focus:border-brand" />
           </div>
           <div>
             <label class="font-mono-label text-[9px] font-bold text-ink-soft">Modalidade</label>
