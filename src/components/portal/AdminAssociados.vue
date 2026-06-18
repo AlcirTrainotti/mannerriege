@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase.js'
 import { calcularCategoria } from '../../lib/categoria.js'
 import { modalidadeOptions, roleOptions, statusOptions } from '../../data/portal.js'
 import DonutChart from './DonutChart.vue'
+import AvatarUpload from './AvatarUpload.vue'
 
 const associados = ref([])
 const loadingList = ref(true)
@@ -12,6 +13,20 @@ const loadError = ref('')
 const busca = ref('')
 const savingId = ref(null)
 const savedId = ref(null)
+const removendoId = ref(null)
+const confirmandoId = ref(null)
+
+async function removerAssociado(id) {
+  confirmandoId.value = null
+  removendoId.value = id
+  const { error } = await supabase.from('profiles').delete().eq('id', id)
+  removendoId.value = null
+  if (error) {
+    loadError.value = 'Não foi possível remover: ' + error.message
+    return
+  }
+  associados.value = associados.value.filter((a) => a.id !== id)
+}
 
 // --- Modal de novo associado ---
 const showModal = ref(false)
@@ -235,22 +250,41 @@ function statusClasses(status) {
 
       <div v-for="a in filtrados" :key="a.id" class="rounded-2xl bg-white p-5 shadow-card">
         <div class="flex flex-wrap items-start justify-between gap-3">
-          <div class="min-w-[200px] flex-1">
-            <input
-              :value="a.nome"
-              type="text"
-              class="w-full rounded-lg border border-transparent bg-transparent px-0 py-0.5 text-sm font-semibold text-ink outline-none hover:border-ink/15 focus:border-brand focus:bg-paper-dim focus:px-2"
-              @change="(e) => { a.nome = e.target.value; salvarCampo(a, 'nome', e.target.value) }"
+          <div class="flex min-w-[200px] flex-1 items-center gap-3">
+            <AvatarUpload
+              :profile-id="a.id"
+              :avatar-url="a.avatar_url"
+              :nome="a.nome"
+              size="sm"
+              :editable="true"
+              @update:avatar-url="(url) => a.avatar_url = url"
             />
-            <p class="text-xs text-ink-soft">{{ a.email }}</p>
+            <div class="min-w-0 flex-1">
+              <input
+                :value="a.nome"
+                type="text"
+                class="w-full rounded-lg border border-transparent bg-transparent px-0 py-0.5 text-sm font-semibold text-ink outline-none hover:border-ink/15 focus:border-brand focus:bg-paper-dim focus:px-2"
+                @change="(e) => { a.nome = e.target.value; salvarCampo(a, 'nome', e.target.value) }"
+              />
+              <p class="text-xs text-ink-soft">{{ a.email }}</p>
+            </div>
           </div>
-          <div class="flex items-center gap-2">
+          <div class="flex flex-wrap items-center gap-2">
             <span v-if="anosAssociado(a.data_associacao) !== null" class="rounded-full bg-gold-soft px-3 py-1 text-xs font-semibold text-ink">
               {{ anosAssociado(a.data_associacao) }}{{ anosAssociado(a.data_associacao) === 1 ? ' ano' : ' anos' }}
             </span>
             <span :class="['rounded-full px-3 py-1 text-xs font-semibold', statusClasses(a.status)]">{{ a.status }}</span>
             <span v-if="savingId?.startsWith(a.id)" class="text-xs text-ink-soft/60">salvando...</span>
             <span v-else-if="savedId?.startsWith(a.id)" class="text-xs text-brand-deep">salvo</span>
+            <!-- Remover -->
+            <template v-if="confirmandoId === a.id">
+              <span class="text-xs text-ink-soft">Confirmar exclusão?</span>
+              <button class="text-xs font-bold text-brand-deep hover:underline" :disabled="removendoId === a.id" @click="removerAssociado(a.id)">
+                {{ removendoId === a.id ? 'removendo...' : 'sim, remover' }}
+              </button>
+              <button class="text-xs text-ink-soft hover:underline" @click="confirmandoId = null">cancelar</button>
+            </template>
+            <button v-else class="ml-1 text-xs text-ink-soft/50 hover:text-brand-deep" @click="confirmandoId = a.id">remover</button>
           </div>
         </div>
 
