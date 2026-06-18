@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { supabase } from '../../lib/supabase.js'
 import { useAuth } from '../../lib/useAuth.js'
 import { modalidadeLabel, statusLabel } from '../../data/portal.js'
@@ -9,20 +9,23 @@ import AvatarUpload from './AvatarUpload.vue'
 
 const { profile, logout } = useAuth()
 
+const PAGE = 5
+
+// --- Avisos ---
 const avisos = ref([])
 const loadingAvisos = ref(true)
-const toastNovoAviso = ref(null) // texto do aviso que chegou em realtime
+const toastNovoAviso = ref(null)
+const paginaAvisos = ref(1)
+const avisosVisiveis = computed(() => avisos.value.slice(0, paginaAvisos.value * PAGE))
+const temMaisAvisos = computed(() => avisos.value.length > paginaAvisos.value * PAGE)
 let canal = null
-
-function statusClasses(status) {
-  if (status === 'adimplente') return 'bg-[#EAF3DE] text-[#27500A]'
-  if (status === 'inadimplente') return 'bg-brand-soft text-brand-deep'
-  return 'bg-ink/8 text-ink-soft'
-}
 
 async function carregarAvisos() {
   loadingAvisos.value = true
-  const { data, error } = await supabase.from('avisos').select('*').order('criado_em', { ascending: false })
+  const { data, error } = await supabase
+    .from('avisos')
+    .select('*')
+    .order('criado_em', { ascending: false })
   if (!error) {
     avisos.value = data
     marcarVisualizados(data)
@@ -39,34 +42,60 @@ async function marcarVisualizados(lista) {
   })
 }
 
-function formatarDataHora(iso) {
-  return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
-}
-
-// Realtime: escuta novos avisos enquanto o associado esta com o site aberto
 function iniciarRealtime() {
   canal = supabase
     .channel('avisos-publicos')
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'avisos' }, async (payload) => {
       const novoAviso = payload.new
-      // Coloca o aviso no topo da lista
       avisos.value = [novoAviso, ...avisos.value]
-      // Marca como visualizado
       if (profile.value) {
         await supabase.from('avisos_visualizacoes').upsert(
           [{ aviso_id: novoAviso.id, profile_id: profile.value.id }],
           { onConflict: 'aviso_id,profile_id', ignoreDuplicates: true }
         )
       }
-      // Mostra toast
       toastNovoAviso.value = novoAviso.titulo
       setTimeout(() => { toastNovoAviso.value = null }, 5000)
     })
     .subscribe()
 }
 
+// --- Atas ---
+const atas = ref([])
+const loadingAtas = ref(true)
+const paginaAtas = ref(1)
+const atasVisiveis = computed(() => atas.value.slice(0, paginaAtas.value * PAGE))
+const temMaisAtas = computed(() => atas.value.length > paginaAtas.value * PAGE)
+
+async function carregarAtas() {
+  loadingAtas.value = true
+  const { data, error } = await supabase
+    .from('atas')
+    .select('*')
+    .order('data_reuniao', { ascending: false })
+  if (!error) atas.value = data
+  loadingAtas.value = false
+}
+
+// --- Utils ---
+function statusClasses(status) {
+  if (status === 'adimplente') return 'bg-[#EAF3DE] text-[#27500A]'
+  if (status === 'inadimplente') return 'bg-brand-soft text-brand-deep'
+  return 'bg-ink/8 text-ink-soft'
+}
+
+function formatarDataHora(iso) {
+  return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+}
+
+function formatarDataAta(d) {
+  if (!d) return '—'
+  return new Date(d + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
+}
+
 onMounted(async () => {
   await carregarAvisos()
+  await carregarAtas()
   iniciarRealtime()
 })
 
@@ -77,6 +106,7 @@ onUnmounted(() => {
 
 <template>
   <div class="mx-auto max-w-lg">
+
     <!-- Toast de novo aviso -->
     <transition name="slide-down">
       <div
@@ -87,6 +117,7 @@ onUnmounted(() => {
       </div>
     </transition>
 
+    <!-- Cabecalho com avatar -->
     <div class="flex items-start justify-between gap-4">
       <div class="flex items-center gap-4">
         <AvatarUpload
@@ -109,6 +140,7 @@ onUnmounted(() => {
       >Sair</button>
     </div>
 
+    <!-- Dados do associado -->
     <div class="mt-8 rounded-2xl bg-white p-7 shadow-card">
       <dl class="space-y-5">
         <div class="flex items-center justify-between border-b border-ink/8 pb-4">
@@ -138,8 +170,20 @@ onUnmounted(() => {
       </dl>
     </div>
 
-    <h2 class="mt-10 font-display text-xl font-bold text-ink">Avisos da diretoria</h2>
-    <p class="mt-1 text-xs text-ink-soft">Você recebe uma notificação ao vivo quando um novo aviso é publicado.</p>
+    <!-- Placeholder financeiro -->
+    <div class="mt-6 rounded-2xl border border-dashed border-ink/15 p-6 text-center">
+      <Icon name="calendar" class="mx-auto h-6 w-6 text-ink-soft/50" />
+      <p class="mt-2 text-sm text-ink-soft">Em breve: lista de mensalidades pagas e pendentes.</p>
+    </div>
+
+    <!-- ===== AVISOS ===== -->
+    <div class="mt-10 flex items-baseline justify-between">
+      <div>
+        <h2 class="font-display text-xl font-bold text-ink">Avisos da diretoria</h2>
+        <p class="mt-0.5 text-xs text-ink-soft">Você recebe uma notificação ao vivo quando um novo aviso é publicado.</p>
+      </div>
+      <span v-if="avisos.length > 0" class="font-mono-label text-[10px] text-ink-soft">{{ avisos.length }} total</span>
+    </div>
 
     <p v-if="loadingAvisos" class="mt-4 text-sm text-ink-soft">Carregando avisos...</p>
     <div v-else class="mt-4 space-y-3">
@@ -147,17 +191,102 @@ onUnmounted(() => {
         <Icon name="calendar" class="mx-auto h-6 w-6 text-ink-soft/50" />
         <p class="mt-2 text-sm text-ink-soft">Nenhum aviso por aqui ainda.</p>
       </div>
-      <div v-for="a in avisos" :key="a.id" class="rounded-2xl bg-white p-5 shadow-card">
-        <p class="font-display text-lg font-bold text-ink">{{ a.titulo }}</p>
+
+      <div v-for="a in avisosVisiveis" :key="a.id" class="rounded-2xl bg-white p-5 shadow-card">
+        <div class="flex items-start gap-2">
+          <p class="font-display text-lg font-bold text-ink">{{ a.titulo }}</p>
+          <span v-if="a.link_drive" class="mt-1 flex-shrink-0 rounded-full bg-gold-soft px-2 py-0.5 font-mono-label text-[9px] font-bold text-ink">ANEXO</span>
+        </div>
         <p class="mt-1 text-xs text-ink-soft">{{ formatarDataHora(a.criado_em) }}</p>
         <p class="mt-3 text-sm leading-relaxed text-ink-soft">{{ a.conteudo }}</p>
+        <a
+          v-if="a.link_drive"
+          :href="a.link_drive"
+          target="_blank"
+          rel="noopener"
+          class="mt-3 inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-xs font-bold text-white hover:bg-brand-deep"
+        >
+          <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M6.28 3l5.72 9.89L4.04 21H2l7.38-12.78L5.72 3h.56zm5.44 0l7.24 12.55L22 21h-2.04l-7.38-12.78L8.16 3h3.56zm4.72 0h2.04l-7.24 12.55L8.16 3h3.56l2.72 4.72L15.44 3z"/></svg>
+          Abrir documento no Drive
+        </a>
+      </div>
+
+      <!-- Paginacao avisos -->
+      <div v-if="temMaisAvisos || paginaAvisos > 1" class="flex items-center justify-center gap-3 pt-2">
+        <button
+          v-if="temMaisAvisos"
+          class="rounded-full border border-ink/15 px-5 py-2 text-xs font-semibold text-ink-soft hover:border-brand hover:text-brand-deep"
+          @click="paginaAvisos++"
+        >
+          Ver mais {{ Math.min(avisos.length - paginaAvisos * PAGE, PAGE) }} avisos
+        </button>
+        <button
+          v-if="paginaAvisos > 1"
+          class="rounded-full border border-ink/15 px-5 py-2 text-xs font-semibold text-ink-soft hover:border-ink/30"
+          @click="paginaAvisos = 1"
+        >
+          Recolher
+        </button>
       </div>
     </div>
 
-    <div class="mt-6 rounded-2xl border border-dashed border-ink/15 p-6 text-center">
-      <Icon name="calendar" class="mx-auto h-6 w-6 text-ink-soft/50" />
-      <p class="mt-2 text-sm text-ink-soft">Em breve: lista de mensalidades pagas e pendentes.</p>
+    <!-- ===== ATAS ===== -->
+    <div class="mt-10 flex items-baseline justify-between">
+      <div>
+        <h2 class="font-display text-xl font-bold text-ink">Atas das assembleias</h2>
+        <p class="mt-0.5 text-xs text-ink-soft">Acesse os documentos das assembleias gerais.</p>
+      </div>
+      <span v-if="atas.length > 0" class="font-mono-label text-[10px] text-ink-soft">{{ atas.length }} total</span>
     </div>
+
+    <p v-if="loadingAtas" class="mt-4 text-sm text-ink-soft">Carregando atas...</p>
+    <div v-else class="mt-4 space-y-3">
+      <div v-if="atas.length === 0" class="rounded-2xl border border-dashed border-ink/15 p-6 text-center">
+        <Icon name="calendar" class="mx-auto h-6 w-6 text-ink-soft/50" />
+        <p class="mt-2 text-sm text-ink-soft">Nenhuma ata disponível ainda.</p>
+      </div>
+
+      <div v-for="a in atasVisiveis" :key="a.id" class="rounded-2xl bg-white p-5 shadow-card">
+        <p class="font-display text-lg font-bold text-ink">{{ a.titulo }}</p>
+        <p class="mt-1 text-xs text-ink-soft">
+          {{ formatarDataAta(a.data_reuniao) }}
+          <span v-if="a.hora_reuniao"> · {{ a.hora_reuniao.slice(0, 5) }}</span>
+          <span v-if="a.local"> · {{ a.local }}</span>
+        </p>
+        <div v-if="a.ordem_do_dia" class="mt-3 rounded-xl bg-paper-dim p-3">
+          <p class="font-mono-label text-[9px] font-bold text-ink-soft">ORDEM DO DIA</p>
+          <p class="mt-1 whitespace-pre-line text-xs text-ink-soft">{{ a.ordem_do_dia }}</p>
+        </div>
+        <a
+          :href="a.link_drive"
+          target="_blank"
+          rel="noopener"
+          class="mt-3 inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-xs font-bold text-white hover:bg-brand-deep"
+        >
+          <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M6.28 3l5.72 9.89L4.04 21H2l7.38-12.78L5.72 3h.56zm5.44 0l7.24 12.55L22 21h-2.04l-7.38-12.78L8.16 3h3.56zm4.72 0h2.04l-7.24 12.55L8.16 3h3.56l2.72 4.72L15.44 3z"/></svg>
+          Abrir no Google Drive
+        </a>
+      </div>
+
+      <!-- Paginacao atas -->
+      <div v-if="temMaisAtas || paginaAtas > 1" class="flex items-center justify-center gap-3 pt-2">
+        <button
+          v-if="temMaisAtas"
+          class="rounded-full border border-ink/15 px-5 py-2 text-xs font-semibold text-ink-soft hover:border-brand hover:text-brand-deep"
+          @click="paginaAtas++"
+        >
+          Ver mais {{ Math.min(atas.length - paginaAtas * PAGE, PAGE) }} atas
+        </button>
+        <button
+          v-if="paginaAtas > 1"
+          class="rounded-full border border-ink/15 px-5 py-2 text-xs font-semibold text-ink-soft hover:border-ink/30"
+          @click="paginaAtas = 1"
+        >
+          Recolher
+        </button>
+      </div>
+    </div>
+
   </div>
 </template>
 

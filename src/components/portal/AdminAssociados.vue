@@ -6,11 +6,14 @@ import { calcularCategoria } from '../../lib/categoria.js'
 import { modalidadeOptions, roleOptions, statusOptions } from '../../data/portal.js'
 import DonutChart from './DonutChart.vue'
 import AvatarUpload from './AvatarUpload.vue'
+import PaginacaoControle from './PaginacaoControle.vue'
 
 const associados = ref([])
 const loadingList = ref(true)
 const loadError = ref('')
 const busca = ref('')
+const paginaAtual = ref(1)
+const porPagina = ref(10)
 const savingId = ref(null)
 const savedId = ref(null)
 const removendoId = ref(null)
@@ -114,6 +117,15 @@ const filtrados = computed(() => {
     (a.cpf ?? '').includes(termo)
   )
 })
+
+const paginados = computed(() => {
+  const ini = (paginaAtual.value - 1) * porPagina.value
+  return filtrados.value.slice(ini, ini + porPagina.value)
+})
+
+// Reset pagina ao buscar
+import { watch } from 'vue'
+watch(busca, () => { paginaAtual.value = 1 })
 
 // --- Resumos para graficos ---
 const resumoStatus = computed(() => {
@@ -248,7 +260,7 @@ function statusClasses(status) {
     <div v-else class="mt-5 space-y-3">
       <div v-if="filtrados.length === 0" class="py-8 text-center text-sm text-ink-soft">Nenhum associado encontrado.</div>
 
-      <div v-for="a in filtrados" :key="a.id" class="rounded-2xl bg-white p-5 shadow-card">
+      <div v-for="a in paginados" :key="a.id" class="rounded-2xl bg-white p-5 shadow-card">
         <div class="flex flex-wrap items-start justify-between gap-3">
           <div class="flex min-w-[200px] flex-1 items-center gap-3">
             <AvatarUpload
