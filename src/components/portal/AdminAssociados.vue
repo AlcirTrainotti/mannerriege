@@ -1,8 +1,10 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { createClient } from '@supabase/supabase-js'
 import { supabase } from '../../lib/supabase.js'
 import { calcularCategoria } from '../../lib/categoria.js'
 import { modalidadeOptions, roleOptions, statusOptions } from '../../data/portal.js'
+import DonutChart from './DonutChart.vue'
 
 const associados = ref([])
 const loadingList = ref(true)
@@ -11,6 +13,69 @@ const busca = ref('')
 const savingId = ref(null)
 const savedId = ref(null)
 
+// --- Modal de novo associado ---
+const showModal = ref(false)
+const novoNome = ref('')
+const novoEmail = ref('')
+const novaSenha = ref('')
+const novoNascimento = ref('')
+const novoAssociacao = ref('')
+const novoModalidade = ref('volei')
+const adicionando = ref(false)
+const addError = ref('')
+
+async function adicionarAssociado() {
+  addError.value = ''
+  if (!novoNome.value.trim() || !novoEmail.value.trim() || !novaSenha.value.trim()) {
+    addError.value = 'Preencha nome, e-mail e senha.'
+    return
+  }
+  adicionando.value = true
+
+  // Cria o usuario em um cliente isolado para nao deslogar o admin
+  const url = import.meta.env.VITE_SUPABASE_URL
+  const key = import.meta.env.VITE_SUPABASE_ANON_KEY
+  const clienteTemp = createClient(url, key, { auth: { storageKey: 'signup-temp' } })
+
+  const { data, error: signupError } = await clienteTemp.auth.signUp({
+    email: novoEmail.value.trim(),
+    password: novaSenha.value,
+    options: { data: { nome: novoNome.value.trim() } },
+  })
+
+  if (signupError || !data.user) {
+    adicionando.value = false
+    addError.value = signupError?.message ?? 'Erro ao criar usuário.'
+    return
+  }
+
+  // Garante que a sessao temporaria e descartada
+  await clienteTemp.auth.signOut()
+
+  // Preenche dados extras no profile criado pelo trigger
+  const camposExtras = {}
+  if (novoNascimento.value) camposExtras.data_nascimento = novoNascimento.value
+  if (novoAssociacao.value) camposExtras.data_associacao = novoAssociacao.value
+  if (novoModalidade.value) camposExtras.modalidade = novoModalidade.value
+
+  if (Object.keys(camposExtras).length) {
+    // Aguarda o trigger criar o profile
+    await new Promise((r) => setTimeout(r, 800))
+    await supabase.from('profiles').update(camposExtras).eq('id', data.user.id)
+  }
+
+  adicionando.value = false
+  showModal.value = false
+  novoNome.value = ''
+  novoEmail.value = ''
+  novaSenha.value = ''
+  novoNascimento.value = ''
+  novoAssociacao.value = ''
+  novoModalidade.value = 'volei'
+  await carregar()
+}
+
+// --- Dados e filtros ---
 async function carregar() {
   loadingList.value = true
   loadError.value = ''
@@ -35,17 +100,23 @@ const filtrados = computed(() => {
   )
 })
 
+// --- Resumos para graficos ---
+const resumoStatus = computed(() => {
+  const r = { adimplente: 0, inadimplente: 0, inativo: 0 }
+  associados.value.forEach((a) => { if (r[a.status] !== undefined) r[a.status]++ })
+  return r
+})
 const resumoModalidade = computed(() => {
   const r = { volei: 0, volei_domino: 0, domino: 0 }
   associados.value.forEach((a) => { if (r[a.modalidade] !== undefined) r[a.modalidade]++ })
   return r
 })
 
-const resumoStatus = computed(() => {
-  const r = { adimplente: 0, inadimplente: 0, inativo: 0 }
-  associados.value.forEach((a) => { if (r[a.status] !== undefined) r[a.status]++ })
-  return r
-})
+function anosAssociado(data) {
+  if (!data) return null
+  const anos = new Date().getFullYear() - new Date(data + 'T00:00:00').getFullYear()
+  return anos
+}
 
 async function salvarCampo(associado, campo, valor) {
   savingId.value = associado.id + campo
@@ -68,46 +139,97 @@ function statusClasses(status) {
 
 <template>
   <div>
-    <div class="grid gap-4 sm:grid-cols-3 lg:grid-cols-6">
-      <div class="rounded-2xl bg-paper-dim p-5">
-        <p class="font-mono-label text-[10px] font-bold text-ink-soft">Total</p>
-        <p class="mt-1 font-display text-3xl font-extrabold text-ink">{{ associados.length }}</p>
+    <!-- Graficos e estatisticas -->
+    <div class="grid gap-6 sm:grid-cols-2">
+      <!-- Card status -->
+      <div class="rounded-2xl bg-white p-6 shadow-card">
+        <p class="font-mono-label text-[10px] font-bold text-ink-soft">Situação financeira</p>
+        <div class="mt-4 flex items-center gap-6">
+          <div class="relative h-28 w-28 flex-shrink-0">
+            <DonutChart
+              :labels="['Adimplentes', 'Inadimplentes', 'Inativos']"
+              :values="[resumoStatus.adimplente, resumoStatus.inadimplente, resumoStatus.inativo]"
+              :colors="['#4a7c2a', '#ED1B24', '#b0a99e']"
+            />
+            <div class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+              <span class="font-display text-2xl font-extrabold text-ink">{{ associados.length }}</span>
+              <span class="font-mono-label text-[9px] text-ink-soft">total</span>
+            </div>
+          </div>
+          <div class="space-y-2 text-sm">
+            <div class="flex items-center gap-2">
+              <span class="h-2.5 w-2.5 rounded-full bg-[#4a7c2a]"></span>
+              <span class="text-ink-soft">Adimplentes</span>
+              <span class="ml-auto font-bold text-ink">{{ resumoStatus.adimplente }}</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="h-2.5 w-2.5 rounded-full bg-brand"></span>
+              <span class="text-ink-soft">Inadimplentes</span>
+              <span class="ml-auto font-bold text-ink">{{ resumoStatus.inadimplente }}</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="h-2.5 w-2.5 rounded-full bg-ink/30"></span>
+              <span class="text-ink-soft">Inativos</span>
+              <span class="ml-auto font-bold text-ink">{{ resumoStatus.inativo }}</span>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="rounded-2xl bg-paper-dim p-5">
-        <p class="font-mono-label text-[10px] font-bold text-ink-soft">Adimplentes</p>
-        <p class="mt-1 font-display text-3xl font-extrabold text-ink">{{ resumoStatus.adimplente }}</p>
-      </div>
-      <div class="rounded-2xl bg-paper-dim p-5">
-        <p class="font-mono-label text-[10px] font-bold text-ink-soft">Inadimplentes</p>
-        <p class="mt-1 font-display text-3xl font-extrabold text-ink">{{ resumoStatus.inadimplente }}</p>
-      </div>
-      <div class="rounded-2xl bg-paper-dim p-5">
-        <p class="font-mono-label text-[10px] font-bold text-ink-soft">Inativos</p>
-        <p class="mt-1 font-display text-3xl font-extrabold text-ink">{{ resumoStatus.inativo }}</p>
-      </div>
-      <div class="rounded-2xl bg-paper-dim p-5">
-        <p class="font-mono-label text-[10px] font-bold text-ink-soft">Vôlei</p>
-        <p class="mt-1 font-display text-3xl font-extrabold text-ink">{{ resumoModalidade.volei }}</p>
-      </div>
-      <div class="rounded-2xl bg-paper-dim p-5">
-        <p class="font-mono-label text-[10px] font-bold text-ink-soft">Dominó (+Vôlei ou só)</p>
-        <p class="mt-1 font-display text-3xl font-extrabold text-ink">{{ resumoModalidade.volei_domino + resumoModalidade.domino }}</p>
+
+      <!-- Card modalidade -->
+      <div class="rounded-2xl bg-white p-6 shadow-card">
+        <p class="font-mono-label text-[10px] font-bold text-ink-soft">Modalidade</p>
+        <div class="mt-4 flex items-center gap-6">
+          <div class="relative h-28 w-28 flex-shrink-0">
+            <DonutChart
+              :labels="['Vôlei', 'Vôlei + Dominó', 'Só Dominó']"
+              :values="[resumoModalidade.volei, resumoModalidade.volei_domino, resumoModalidade.domino]"
+              :colors="['#ED1B24', '#c08a2e', '#18130f']"
+            />
+            <div class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+              <span class="font-display text-2xl font-extrabold text-ink">{{ associados.length }}</span>
+              <span class="font-mono-label text-[9px] text-ink-soft">atletas</span>
+            </div>
+          </div>
+          <div class="space-y-2 text-sm">
+            <div class="flex items-center gap-2">
+              <span class="h-2.5 w-2.5 rounded-full bg-brand"></span>
+              <span class="text-ink-soft">Vôlei</span>
+              <span class="ml-auto font-bold text-ink">{{ resumoModalidade.volei }}</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="h-2.5 w-2.5 rounded-full bg-gold"></span>
+              <span class="text-ink-soft">Vôlei + Dominó</span>
+              <span class="ml-auto font-bold text-ink">{{ resumoModalidade.volei_domino }}</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="h-2.5 w-2.5 rounded-full bg-ink"></span>
+              <span class="text-ink-soft">Só Dominó</span>
+              <span class="ml-auto font-bold text-ink">{{ resumoModalidade.domino }}</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
-    <div class="mt-8 flex items-center justify-between gap-4">
+    <!-- Barra de busca + botao -->
+    <div class="mt-8 flex flex-wrap items-center gap-3">
       <input
         v-model="busca"
         type="text"
         placeholder="Buscar por nome, e-mail ou CPF..."
-        class="w-full max-w-sm rounded-xl border border-ink/15 bg-white px-4 py-2.5 text-sm text-ink outline-none focus:border-brand"
+        class="min-w-0 flex-1 rounded-xl border border-ink/15 bg-white px-4 py-2.5 text-sm text-ink outline-none focus:border-brand"
       />
-      <span class="hidden text-xs text-ink-soft sm:inline">{{ filtrados.length }} associado(s)</span>
+      <button
+        class="flex-shrink-0 rounded-full bg-brand px-5 py-2.5 font-mono-label text-[11px] font-bold text-white hover:bg-brand-deep"
+        @click="showModal = true"
+      >+ Novo associado</button>
     </div>
 
     <p v-if="loadError" class="mt-4 text-sm text-brand-deep">{{ loadError }}</p>
-    <p v-if="loadingList" class="mt-6 text-sm text-ink-soft">Carregando associados...</p>
+    <p v-if="loadingList" class="mt-6 text-sm text-ink-soft">Carregando...</p>
 
+    <!-- Lista de associados -->
     <div v-else class="mt-5 space-y-3">
       <div v-if="filtrados.length === 0" class="py-8 text-center text-sm text-ink-soft">Nenhum associado encontrado.</div>
 
@@ -123,6 +245,9 @@ function statusClasses(status) {
             <p class="text-xs text-ink-soft">{{ a.email }}</p>
           </div>
           <div class="flex items-center gap-2">
+            <span v-if="anosAssociado(a.data_associacao) !== null" class="rounded-full bg-gold-soft px-3 py-1 text-xs font-semibold text-ink">
+              {{ anosAssociado(a.data_associacao) }}{{ anosAssociado(a.data_associacao) === 1 ? ' ano' : ' anos' }}
+            </span>
             <span :class="['rounded-full px-3 py-1 text-xs font-semibold', statusClasses(a.status)]">{{ a.status }}</span>
             <span v-if="savingId?.startsWith(a.id)" class="text-xs text-ink-soft/60">salvando...</span>
             <span v-else-if="savedId?.startsWith(a.id)" class="text-xs text-brand-deep">salvo</span>
@@ -150,9 +275,18 @@ function statusClasses(status) {
             />
           </div>
           <div>
+            <label class="font-mono-label text-[9px] font-bold text-ink-soft">Associado desde</label>
+            <input
+              :value="a.data_associacao"
+              type="date"
+              class="mt-1 w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs text-ink outline-none focus:border-brand"
+              @change="(e) => { a.data_associacao = e.target.value; salvarCampo(a, 'data_associacao', e.target.value) }"
+            />
+          </div>
+          <div>
             <label class="font-mono-label text-[9px] font-bold text-ink-soft">Categoria</label>
             <p class="mt-1 rounded-lg bg-paper-dim px-3 py-2 text-xs font-semibold text-ink">
-              {{ calcularCategoria(a.data_nascimento) || 'preencha o nascimento' }}
+              {{ calcularCategoria(a.data_nascimento) || '—' }}
             </p>
           </div>
           <div>
@@ -189,9 +323,53 @@ function statusClasses(status) {
       </div>
     </div>
 
-    <p class="mt-8 text-xs text-ink-soft/70">
-      Para cadastrar um novo associado: crie o login em Supabase → Authentication → Users, e ele
-      aparecerá automaticamente nesta lista para você preencher os dados.
-    </p>
+    <!-- Modal novo associado -->
+    <div v-if="showModal" class="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 px-4" @click.self="showModal = false">
+      <div class="w-full max-w-md rounded-2xl bg-white p-8 shadow-card">
+        <h2 class="font-display text-2xl font-extrabold text-ink">Novo associado</h2>
+        <p class="mt-1 text-xs text-ink-soft">Um e-mail de confirmação será enviado automaticamente pela Supabase.</p>
+
+        <div class="mt-6 space-y-3">
+          <div>
+            <label class="font-mono-label text-[9px] font-bold text-ink-soft">Nome completo *</label>
+            <input v-model="novoNome" type="text" class="mt-1 w-full rounded-xl border border-ink/15 bg-white px-4 py-2.5 text-sm text-ink outline-none focus:border-brand" />
+          </div>
+          <div>
+            <label class="font-mono-label text-[9px] font-bold text-ink-soft">E-mail *</label>
+            <input v-model="novoEmail" type="email" class="mt-1 w-full rounded-xl border border-ink/15 bg-white px-4 py-2.5 text-sm text-ink outline-none focus:border-brand" />
+          </div>
+          <div>
+            <label class="font-mono-label text-[9px] font-bold text-ink-soft">Senha temporária *</label>
+            <input v-model="novaSenha" type="text" placeholder="mín. 8 caracteres" class="mt-1 w-full rounded-xl border border-ink/15 bg-white px-4 py-2.5 text-sm text-ink outline-none focus:border-brand" />
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="font-mono-label text-[9px] font-bold text-ink-soft">Nascimento</label>
+              <input v-model="novoNascimento" type="date" class="mt-1 w-full rounded-xl border border-ink/15 bg-white px-3 py-2.5 text-sm text-ink outline-none focus:border-brand" />
+            </div>
+            <div>
+              <label class="font-mono-label text-[9px] font-bold text-ink-soft">Associado desde</label>
+              <input v-model="novoAssociacao" type="date" class="mt-1 w-full rounded-xl border border-ink/15 bg-white px-3 py-2.5 text-sm text-ink outline-none focus:border-brand" />
+            </div>
+          </div>
+          <div>
+            <label class="font-mono-label text-[9px] font-bold text-ink-soft">Modalidade</label>
+            <select v-model="novoModalidade" class="mt-1 w-full rounded-xl border border-ink/15 bg-white px-4 py-2.5 text-sm text-ink outline-none focus:border-brand">
+              <option v-for="m in modalidadeOptions" :key="m.value" :value="m.value">{{ m.label }}</option>
+            </select>
+          </div>
+          <p v-if="addError" class="text-xs text-brand-deep">{{ addError }}</p>
+        </div>
+
+        <div class="mt-6 flex gap-3">
+          <button class="flex-1 rounded-full border border-ink/15 py-2.5 text-xs font-semibold text-ink-soft hover:border-ink/30" @click="showModal = false">Cancelar</button>
+          <button
+            :disabled="adicionando"
+            class="flex-1 rounded-full bg-brand py-2.5 font-mono-label text-[11px] font-bold text-white hover:bg-brand-deep disabled:opacity-50"
+            @click="adicionarAssociado"
+          >{{ adicionando ? 'Criando...' : 'Criar associado' }}</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
