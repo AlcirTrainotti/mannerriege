@@ -1,0 +1,1 @@
+var e=`/assets/conquistas-2024-D3IDlaME.jpg`;export{e as t};

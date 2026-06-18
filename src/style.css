@@ -1,0 +1,99 @@
+@import "tailwindcss";
+
+/* ====================================================
+   MANNERRIEGE — design tokens
+   Heranca: vermelho/preto/branco do escudo oficial.
+   Sistema: placar esportivo (numerais condensados) +
+   cartoes limpos no espirito "startup".
+   ==================================================== */
+@theme {
+  --color-ink: #18130f;
+  --color-ink-soft: #4a423c;
+  --color-paper: #faf6ef;
+  --color-paper-dim: #f1ebe0;
+  --color-white: #ffffff;
+  --color-brand: #ed1b24;
+  --color-brand-deep: #9c0f17;
+  --color-brand-soft: #fde4e2;
+  --color-gold: #c08a2e;
+  --color-gold-soft: #f3e3c2;
+
+  --font-display: "Big Shoulders Display", "Arial Narrow", sans-serif;
+  --font-body: "Manrope", system-ui, sans-serif;
+  --font-mono: "Space Mono", ui-monospace, monospace;
+
+  --shadow-card: 0 1px 2px rgba(24,19,15,0.04), 0 16px 32px -16px rgba(24,19,15,0.18);
+  --shadow-lift: 0 24px 48px -20px rgba(24,19,15,0.28);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-body);
+  background-color: var(--color-paper);
+  color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Big Shoulders is a tall/condensed display face: tighten tracking */
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
+  line-height: 0.95;
+}
+
+.font-mono-label {
+  font-family: var(--font-mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+/* Diagonal hatch motif — derived from the club's own match-day decks */
+.hatch-mark {
+  background-image: repeating-linear-gradient(
+    115deg,
+    currentColor 0px,
+    currentColor 2px,
+    transparent 2px,
+    transparent 9px
+  );
+}
+
+/* Scroll reveal (v-reveal directive) */
+.reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+.reveal-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+/* Focus visibility kept intentional, not removed */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 3px;
+}
+
+::selection {
+  background-color: var(--color-brand);
+  color: var(--color-white);
+}
