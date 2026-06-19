@@ -2,6 +2,8 @@
 import { ref, onMounted, computed, watch } from 'vue'
 import { supabase } from '../../lib/supabase.js'
 import PaginacaoControle from './PaginacaoControle.vue'
+import MarkdownEditor from './MarkdownEditor.vue'
+import MarkdownContent from './MarkdownContent.vue'
 
 const atas = ref([])
 const loading = ref(true)
@@ -153,9 +155,11 @@ function formatarData(d) {
         </div>
         <div class="sm:col-span-2">
           <label class="font-mono-label text-[9px] font-bold text-ink-soft">Ordem do dia</label>
-          <textarea v-model="form.ordem_do_dia" rows="3"
+          <MarkdownEditor
+            v-model="form.ordem_do_dia"
+            :rows="4"
             placeholder="1. Aprovação da ata anterior&#10;2. Prestação de contas&#10;3. Eleição de diretoria..."
-            class="mt-1 w-full rounded-xl border border-ink/15 bg-white px-4 py-2.5 text-sm text-ink outline-none focus:border-brand"></textarea>
+          />
         </div>
         <div class="sm:col-span-2">
           <label class="font-mono-label text-[9px] font-bold text-ink-soft">Link do Google Drive *</label>
@@ -207,7 +211,7 @@ function formatarData(d) {
 
           <div v-if="a.ordem_do_dia" class="mt-3 rounded-xl bg-paper-dim p-3">
             <p class="font-mono-label text-[9px] font-bold text-ink-soft">ORDEM DO DIA</p>
-            <p class="mt-1 whitespace-pre-line text-xs text-ink-soft">{{ a.ordem_do_dia }}</p>
+            <MarkdownContent :content="a.ordem_do_dia" collapsible :collapsed-height="120" class="mt-1" />
           </div>
 
           <a
@@ -242,7 +246,7 @@ function formatarData(d) {
             </div>
             <div class="sm:col-span-2">
               <label class="font-mono-label text-[9px] font-bold text-ink-soft">Ordem do dia</label>
-              <textarea v-model="edit.ordem_do_dia" rows="3" class="mt-1 w-full rounded-xl border border-ink/15 bg-white px-4 py-2.5 text-sm text-ink outline-none focus:border-brand"></textarea>
+              <MarkdownEditor v-model="edit.ordem_do_dia" :rows="4" />
             </div>
             <div class="sm:col-span-2">
               <label class="font-mono-label text-[9px] font-bold text-ink-soft">Link do Google Drive *</label>

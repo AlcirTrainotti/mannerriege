@@ -2,6 +2,8 @@
 import { ref, onMounted, computed, watch } from 'vue'
 import { supabase } from '../../lib/supabase.js'
 import PaginacaoControle from './PaginacaoControle.vue'
+import MarkdownEditor from './MarkdownEditor.vue'
+import MarkdownContent from './MarkdownContent.vue'
 
 const avisos = ref([])
 const totalPessoas = ref(0)
@@ -152,12 +154,11 @@ function formatarDataHora(iso) {
           placeholder="Título do aviso ou edital"
           class="w-full rounded-xl border border-ink/15 bg-white px-4 py-2.5 text-sm text-ink outline-none focus:border-brand"
         />
-        <textarea
+        <MarkdownEditor
           v-model="conteudo"
-          rows="3"
-          placeholder="Mensagem para os associados..."
-          class="w-full rounded-xl border border-ink/15 bg-white px-4 py-2.5 text-sm text-ink outline-none focus:border-brand"
-        ></textarea>
+          :rows="4"
+          placeholder="Mensagem para os associados... (aceita markdown)"
+        />
         <div>
           <input
             v-model="linkDrive"
@@ -207,7 +208,7 @@ function formatarDataHora(iso) {
             </div>
           </div>
 
-          <p class="mt-3 text-sm leading-relaxed text-ink-soft">{{ a.conteudo }}</p>
+          <MarkdownContent :content="a.conteudo" collapsible :collapsed-height="160" class="mt-3" />
 
           <div class="mt-3 flex flex-wrap items-center gap-3">
             <p class="font-mono-label text-[10px] font-bold text-brand-deep">
@@ -234,11 +235,7 @@ function formatarDataHora(iso) {
               type="text"
               class="w-full rounded-xl border border-brand bg-white px-4 py-2.5 text-sm font-semibold text-ink outline-none"
             />
-            <textarea
-              v-model="editConteudo"
-              rows="3"
-              class="w-full rounded-xl border border-brand bg-white px-4 py-2.5 text-sm text-ink outline-none"
-            ></textarea>
+            <MarkdownEditor v-model="editConteudo" :rows="4" />
             <input
               v-model="editLinkDrive"
               type="url"

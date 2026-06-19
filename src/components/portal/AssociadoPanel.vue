@@ -6,6 +6,7 @@ import { modalidadeLabel, statusLabel } from '../../data/portal.js'
 import { calcularCategoria, formatarData } from '../../lib/categoria.js'
 import Icon from '../Icon.vue'
 import AvatarUpload from './AvatarUpload.vue'
+import MarkdownContent from './MarkdownContent.vue'
 
 const { profile, logout } = useAuth()
 
@@ -202,7 +203,7 @@ onUnmounted(() => {
           <span v-if="a.link_drive" class="mt-1 flex-shrink-0 rounded-full bg-gold-soft px-2 py-0.5 font-mono-label text-[9px] font-bold text-ink">ANEXO</span>
         </div>
         <p class="mt-1 text-xs text-ink-soft">{{ formatarDataHora(a.criado_em) }}</p>
-        <p class="mt-3 text-sm leading-relaxed text-ink-soft">{{ a.conteudo }}</p>
+        <MarkdownContent :content="a.conteudo" collapsible :collapsed-height="120" class="mt-3" />
         <a
           v-if="a.link_drive"
           :href="a.link_drive"
@@ -259,7 +260,7 @@ onUnmounted(() => {
         </p>
         <div v-if="a.ordem_do_dia" class="mt-3 rounded-xl bg-paper-dim p-3">
           <p class="font-mono-label text-[9px] font-bold text-ink-soft">ORDEM DO DIA</p>
-          <p class="mt-1 whitespace-pre-line text-xs text-ink-soft">{{ a.ordem_do_dia }}</p>
+          <MarkdownContent :content="a.ordem_do_dia" collapsible :collapsed-height="100" class="mt-1" />
         </div>
         <a
           :href="a.link_drive"
