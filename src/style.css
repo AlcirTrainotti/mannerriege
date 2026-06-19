@@ -97,3 +97,20 @@ textarea:focus-visible {
   background-color: var(--color-brand);
   color: var(--color-white);
 }
+
+/* Isola a área de impressão (relação de atletas) do resto do app */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .print-area,
+  .print-area * {
+    visibility: visible;
+  }
+  .print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+}

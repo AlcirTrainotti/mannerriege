@@ -3,6 +3,7 @@ import { useAuth } from '../lib/useAuth.js'
 import LoginForm from '../components/portal/LoginForm.vue'
 import AssociadoPanel from '../components/portal/AssociadoPanel.vue'
 import AdminPanel from '../components/portal/AdminPanel.vue'
+import EsportivoPanel from '../components/portal/EsportivoPanel.vue'
 
 const { user, profile, loading, profileError } = useAuth()
 </script>
@@ -20,6 +21,7 @@ const { user, profile, loading, profileError } = useAuth()
       </div>
 
       <AdminPanel v-else-if="profile?.role === 'admin'" />
+      <EsportivoPanel v-else-if="profile?.role === 'coordenador_esportivo'" />
       <AssociadoPanel v-else />
     </div>
   </section>

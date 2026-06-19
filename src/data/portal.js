@@ -10,6 +10,7 @@ export function modalidadeLabel(value) {
 
 export const roleOptions = [
   { value: 'associado', label: 'Associado' },
+  { value: 'coordenador_esportivo', label: 'Coordenador Esportivo' },
   { value: 'admin', label: 'Administrador' },
 ]
 

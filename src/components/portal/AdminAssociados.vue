@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 import { supabase } from '../../lib/supabase.js'
 import { calcularCategoria } from '../../lib/categoria.js'
 import { modalidadeOptions, roleOptions, statusOptions } from '../../data/portal.js'
+import { posicaoOptions } from '../../data/convidados.js'
 import DonutChart from './DonutChart.vue'
 import AvatarUpload from './AvatarUpload.vue'
 import PaginacaoControle from './PaginacaoControle.vue'
@@ -31,6 +32,40 @@ async function removerAssociado(id) {
   associados.value = associados.value.filter((a) => a.id !== id)
 }
 
+// --- Tornar convidado (associado que saiu mas continua jogando) ---
+const confirmandoConverterId = ref(null)
+const convertendoId = ref(null)
+
+async function converterParaConvidado(a) {
+  confirmandoConverterId.value = null
+  convertendoId.value = a.id
+
+  const { error: insertError } = await supabase.from('convidados').insert({
+    nome: a.nome,
+    cpf: a.cpf,
+    data_nascimento: a.data_nascimento,
+    posicao: a.posicao,
+    telefone: a.telefone,
+    email: a.email,
+  })
+
+  if (insertError) {
+    convertendoId.value = null
+    loadError.value = 'Não foi possível converter: ' + insertError.message
+    return
+  }
+
+  const { error: deleteError } = await supabase.from('profiles').delete().eq('id', a.id)
+  convertendoId.value = null
+
+  if (deleteError) {
+    loadError.value = 'Convidado criado, mas não foi possível remover o cadastro de associado: ' + deleteError.message
+    return
+  }
+
+  associados.value = associados.value.filter((x) => x.id !== a.id)
+}
+
 // --- Modal de novo associado ---
 const showModal = ref(false)
 const novoNome = ref('')
@@ -39,6 +74,7 @@ const novaSenha = ref('')
 const novoNascimento = ref('')
 const novoAssociacao = ref('')
 const novoModalidade = ref('volei')
+const novoPosicao = ref(null)
 const novoTelefone = ref('')
 const adicionando = ref(false)
 const addError = ref('')
@@ -77,6 +113,7 @@ async function adicionarAssociado() {
   if (novoAssociacao.value) camposExtras.data_associacao = novoAssociacao.value
   if (novoModalidade.value) camposExtras.modalidade = novoModalidade.value
   if (novoTelefone.value) camposExtras.telefone = novoTelefone.value
+  if (novoPosicao.value) camposExtras.posicao = novoPosicao.value
 
   if (Object.keys(camposExtras).length) {
     // Aguarda o trigger criar o profile
@@ -93,6 +130,7 @@ async function adicionarAssociado() {
   novoAssociacao.value = ''
   novoModalidade.value = 'volei'
   novoTelefone.value = ''
+  novoPosicao.value = null
   await carregar()
 }
 
@@ -291,6 +329,20 @@ function statusClasses(status) {
             <span :class="['rounded-full px-3 py-1 text-xs font-semibold', statusClasses(a.status)]">{{ a.status }}</span>
             <span v-if="savingId?.startsWith(a.id)" class="text-xs text-ink-soft/60">salvando...</span>
             <span v-else-if="savedId?.startsWith(a.id)" class="text-xs text-brand-deep">salvo</span>
+            <!-- Tornar convidado -->
+            <template v-if="confirmandoConverterId === a.id">
+              <span class="text-xs text-ink-soft">Criar convidado e remover associado?</span>
+              <button class="text-xs font-bold text-gold hover:underline" :disabled="convertendoId === a.id" @click="converterParaConvidado(a)">
+                {{ convertendoId === a.id ? 'convertendo...' : 'sim, converter' }}
+              </button>
+              <button class="text-xs text-ink-soft hover:underline" @click="confirmandoConverterId = null">cancelar</button>
+            </template>
+            <button
+              v-else-if="confirmandoId !== a.id"
+              class="text-xs text-ink-soft/50 hover:text-ink"
+              title="O associado sai do quadro de sócios, mas continua disponível como convidado para campeonatos"
+              @click="confirmandoConverterId = a.id"
+            >tornar convidado</button>
             <!-- Remover -->
             <template v-if="confirmandoId === a.id">
               <span class="text-xs text-ink-soft">Confirmar exclusão?</span>
@@ -299,7 +351,7 @@ function statusClasses(status) {
               </button>
               <button class="text-xs text-ink-soft hover:underline" @click="confirmandoId = null">cancelar</button>
             </template>
-            <button v-else class="ml-1 text-xs text-ink-soft/50 hover:text-brand-deep" @click="confirmandoId = a.id">remover</button>
+            <button v-else-if="confirmandoConverterId !== a.id" class="ml-1 text-xs text-ink-soft/50 hover:text-brand-deep" @click="confirmandoId = a.id">remover</button>
           </div>
         </div>
 
@@ -356,6 +408,17 @@ function statusClasses(status) {
               @change="(e) => { a.modalidade = e.target.value; salvarCampo(a, 'modalidade', e.target.value) }"
             >
               <option v-for="m in modalidadeOptions" :key="m.value" :value="m.value">{{ m.label }}</option>
+            </select>
+          </div>
+          <div>
+            <label class="font-mono-label text-[9px] font-bold text-ink-soft">Posição</label>
+            <select
+              :value="a.posicao"
+              class="mt-1 w-full rounded-lg border border-ink/15 bg-white px-2 py-2 text-xs text-ink outline-none focus:border-brand"
+              @change="(e) => { a.posicao = e.target.value; salvarCampo(a, 'posicao', e.target.value) }"
+            >
+              <option :value="null">—</option>
+              <option v-for="p in posicaoOptions" :key="p.value" :value="p.value">{{ p.label }}</option>
             </select>
           </div>
           <div>
@@ -416,11 +479,20 @@ function statusClasses(status) {
             <input v-model="novoTelefone" type="tel" placeholder="(47) 9 9999-9999"
               class="mt-1 w-full rounded-xl border border-ink/15 bg-white px-4 py-2.5 text-sm text-ink outline-none focus:border-brand" />
           </div>
-          <div>
-            <label class="font-mono-label text-[9px] font-bold text-ink-soft">Modalidade</label>
-            <select v-model="novoModalidade" class="mt-1 w-full rounded-xl border border-ink/15 bg-white px-4 py-2.5 text-sm text-ink outline-none focus:border-brand">
-              <option v-for="m in modalidadeOptions" :key="m.value" :value="m.value">{{ m.label }}</option>
-            </select>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="font-mono-label text-[9px] font-bold text-ink-soft">Modalidade</label>
+              <select v-model="novoModalidade" class="mt-1 w-full rounded-xl border border-ink/15 bg-white px-4 py-2.5 text-sm text-ink outline-none focus:border-brand">
+                <option v-for="m in modalidadeOptions" :key="m.value" :value="m.value">{{ m.label }}</option>
+              </select>
+            </div>
+            <div>
+              <label class="font-mono-label text-[9px] font-bold text-ink-soft">Posição</label>
+              <select v-model="novoPosicao" class="mt-1 w-full rounded-xl border border-ink/15 bg-white px-4 py-2.5 text-sm text-ink outline-none focus:border-brand">
+                <option :value="null">Não joga</option>
+                <option v-for="p in posicaoOptions" :key="p.value" :value="p.value">{{ p.label }}</option>
+              </select>
+            </div>
           </div>
           <p v-if="addError" class="text-xs text-brand-deep">{{ addError }}</p>
         </div>
