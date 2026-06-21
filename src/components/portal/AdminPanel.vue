@@ -1,10 +1,13 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, defineAsyncComponent } from 'vue'
 import { useAuth } from '../../lib/useAuth.js'
-import AdminAssociados from './AdminAssociados.vue'
-import AdminAvisos from './AdminAvisos.vue'
-import AdminAtas from './AdminAtas.vue'
-import EsportivoPanel from './EsportivoPanel.vue'
+
+// Carregamento sob demanda: cada aba só baixa seu código quando é
+// realmente aberta, em vez de tudo junto na primeira tela do portal.
+const AdminAssociados = defineAsyncComponent(() => import('./AdminAssociados.vue'))
+const AdminAvisos = defineAsyncComponent(() => import('./AdminAvisos.vue'))
+const AdminAtas = defineAsyncComponent(() => import('./AdminAtas.vue'))
+const EsportivoPanel = defineAsyncComponent(() => import('./EsportivoPanel.vue'))
 
 const { profile: meuPerfil, logout } = useAuth()
 const aba = ref('associados')

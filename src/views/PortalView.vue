@@ -1,9 +1,13 @@
 <script setup>
+import { defineAsyncComponent } from 'vue'
 import { useAuth } from '../lib/useAuth.js'
 import LoginForm from '../components/portal/LoginForm.vue'
-import AssociadoPanel from '../components/portal/AssociadoPanel.vue'
-import AdminPanel from '../components/portal/AdminPanel.vue'
-import EsportivoPanel from '../components/portal/EsportivoPanel.vue'
+
+// So baixa o codigo do painel certo DEPOIS do login, e so o painel do
+// proprio papel da pessoa - a tela de login em si fica leve e rapida.
+const AssociadoPanel = defineAsyncComponent(() => import('../components/portal/AssociadoPanel.vue'))
+const AdminPanel = defineAsyncComponent(() => import('../components/portal/AdminPanel.vue'))
+const EsportivoPanel = defineAsyncComponent(() => import('../components/portal/EsportivoPanel.vue'))
 
 const { user, profile, loading, profileError } = useAuth()
 </script>

@@ -1,9 +1,10 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, defineAsyncComponent } from 'vue'
 import { useAuth } from '../../lib/useAuth.js'
-import AdminConvidados from './AdminConvidados.vue'
-import AdminInventario from './AdminInventario.vue'
-import AdminCampeonatos from './AdminCampeonatos.vue'
+
+const AdminConvidados = defineAsyncComponent(() => import('./AdminConvidados.vue'))
+const AdminInventario = defineAsyncComponent(() => import('./AdminInventario.vue'))
+const AdminCampeonatos = defineAsyncComponent(() => import('./AdminCampeonatos.vue'))
 
 const props = defineProps({
   // Quando embedded=true, nao mostra o cabecalho proprio (titulo + sair),

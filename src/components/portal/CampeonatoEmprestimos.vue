@@ -10,6 +10,9 @@ const props = defineProps({
 const emprestimos = ref([])
 const uniformesDisponiveis = ref([])
 const bolasDisponiveis = ref([])
+const jogosUniformeDisponiveis = ref([])
+const categorias = ref([])
+const responsaveisElegiveis = ref([])
 const loading = ref(true)
 const loadError = ref('')
 
@@ -17,23 +20,26 @@ async function carregar() {
   loading.value = true
   loadError.value = ''
 
-  const { data: emp, error } = await supabase
-    .from('campeonato_emprestimos')
-    .select('*')
-    .eq('campeonato_id', props.campeonato.id)
-    .order('criado_em', { ascending: false })
-  if (error) {
-    loadError.value = error.message
+  const [empRes, unisRes, blsRes, jogosRes, catsRes, elegiveisRes] = await Promise.all([
+    supabase.from('campeonato_emprestimos').select('*').eq('campeonato_id', props.campeonato.id).order('criado_em', { ascending: false }),
+    supabase.from('uniformes').select('id, numero, tamanho, jogos_uniforme(nome)'),
+    supabase.from('bolas').select('id, modelo, marca'),
+    supabase.from('jogos_uniforme').select('id, nome'),
+    supabase.from('campeonato_categorias').select('id, categoria').eq('campeonato_id', props.campeonato.id).order('categoria'),
+    supabase.rpc('listar_responsaveis_elegiveis', { p_campeonato_id: props.campeonato.id }),
+  ])
+
+  if (empRes.error) {
+    loadError.value = empRes.error.message
     loading.value = false
     return
   }
-  emprestimos.value = emp
-
-  const { data: unis } = await supabase.from('uniformes').select('id, numero, tamanho, jogos_uniforme(nome)')
-  uniformesDisponiveis.value = unis ?? []
-
-  const { data: bls } = await supabase.from('bolas').select('id, modelo, marca')
-  bolasDisponiveis.value = bls ?? []
+  emprestimos.value = empRes.data
+  uniformesDisponiveis.value = unisRes.data ?? []
+  bolasDisponiveis.value = blsRes.data ?? []
+  jogosUniformeDisponiveis.value = jogosRes.data ?? []
+  categorias.value = catsRes.data ?? []
+  responsaveisElegiveis.value = elegiveisRes.data ?? []
 
   loading.value = false
 }
@@ -52,8 +58,19 @@ function nomeBola(id) {
   return `${b.modelo}${b.marca ? ' · ' + b.marca : ''}`
 }
 
+function nomeConjunto(id) {
+  const j = jogosUniformeDisponiveis.value.find((x) => x.id === id)
+  return j ? `${j.nome} (conjunto completo)` : '(conjunto removido)'
+}
+
 function nomeAtivo(emp) {
-  return emp.tipo_ativo === 'uniforme' ? nomeUniforme(emp.uniforme_id) : nomeBola(emp.bola_id)
+  if (emp.tipo_ativo === 'uniforme') return nomeUniforme(emp.uniforme_id)
+  if (emp.tipo_ativo === 'bola') return nomeBola(emp.bola_id)
+  return nomeConjunto(emp.jogo_uniforme_id)
+}
+
+function nomeCategoria(id) {
+  return categorias.value.find((c) => c.id === id)?.categoria ?? null
 }
 
 function formatarDataHora(iso) {
@@ -63,16 +80,18 @@ function formatarDataHora(iso) {
 
 // --- Novo emprestimo ---
 const showModal = ref(false)
-const novoTipoAtivo = ref('uniforme')
+const novoTipoAtivo = ref('conjunto_uniforme')
 const novoAtivoId = ref('')
+const novaCategoriaId = ref('')
 const novoResponsavel = ref('')
 const confirmaRetirada = ref(false)
 const salvandoNovo = ref(false)
 const addError = ref('')
 
 function limparForm() {
-  novoTipoAtivo.value = 'uniforme'
+  novoTipoAtivo.value = 'conjunto_uniforme'
   novoAtivoId.value = ''
+  novaCategoriaId.value = ''
   novoResponsavel.value = ''
   confirmaRetirada.value = false
   addError.value = ''
@@ -87,9 +106,11 @@ async function registrarRetirada() {
   salvandoNovo.value = true
   const { error } = await supabase.from('campeonato_emprestimos').insert({
     campeonato_id: props.campeonato.id,
+    campeonato_categoria_id: novaCategoriaId.value || null,
     tipo_ativo: novoTipoAtivo.value,
     uniforme_id: novoTipoAtivo.value === 'uniforme' ? novoAtivoId.value : null,
     bola_id: novoTipoAtivo.value === 'bola' ? novoAtivoId.value : null,
+    jogo_uniforme_id: novoTipoAtivo.value === 'conjunto_uniforme' ? novoAtivoId.value : null,
     responsavel_nome: novoResponsavel.value.trim(),
     retirado_em: new Date().toISOString(),
     visto_retirada: true,
@@ -176,11 +197,10 @@ async function confirmarDevolucao(emp) {
   await carregar()
 }
 
-const ativosOptions = computed(() =>
-  novoTipoAtivo.value === 'uniforme'
-    ? uniformesDisponiveis.value.map((u) => ({ id: u.id, label: nomeUniforme(u.id) }))
-    : bolasDisponiveis.value.map((b) => ({ id: b.id, label: nomeBola(b.id) }))
-)
+const ativosOptions = computed(() => {
+  if (novoTipoAtivo.value === 'bola') return bolasDisponiveis.value.map((b) => ({ id: b.id, label: nomeBola(b.id) }))
+  return jogosUniformeDisponiveis.value.map((j) => ({ id: j.id, label: j.nome }))
+})
 
 const pendentes = computed(() => emprestimos.value.filter((e) => !e.devolvido_em))
 const concluidos = computed(() => emprestimos.value.filter((e) => e.devolvido_em))
@@ -210,6 +230,7 @@ const concluidos = computed(() => emprestimos.value.filter((e) => e.devolvido_em
               <p class="text-sm font-semibold text-ink">
                 <span class="rounded-full bg-gold-soft px-2 py-0.5 text-[10px] font-bold uppercase">{{ emp.tipo_ativo }}</span>
                 {{ nomeAtivo(emp) }}
+                <span v-if="nomeCategoria(emp.campeonato_categoria_id)" class="rounded-full bg-brand px-2 py-0.5 text-[10px] font-bold text-white">{{ nomeCategoria(emp.campeonato_categoria_id) }}</span>
               </p>
               <p class="mt-1 text-xs text-ink-soft">Retirado por {{ emp.responsavel_nome }} em {{ formatarDataHora(emp.retirado_em) }}</p>
             </div>
@@ -223,7 +244,10 @@ const concluidos = computed(() => emprestimos.value.filter((e) => e.devolvido_em
             <div class="grid gap-3 sm:grid-cols-2">
               <div>
                 <label class="font-mono-label text-[9px] font-bold text-ink-soft">Quem devolveu</label>
-                <input v-model="devolucaoResponsavel" type="text" class="mt-1 w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs text-ink outline-none focus:border-brand" />
+                <select v-model="devolucaoResponsavel" class="mt-1 w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs text-ink outline-none focus:border-brand">
+                  <option value="" disabled>Selecione...</option>
+                  <option v-for="r in responsaveisElegiveis" :key="r.id" :value="r.nome">{{ r.nome }}</option>
+                </select>
               </div>
               <div>
                 <label class="font-mono-label text-[9px] font-bold text-ink-soft">Foto da devolução (opcional)</label>
@@ -264,6 +288,7 @@ const concluidos = computed(() => emprestimos.value.filter((e) => e.devolvido_em
               <p class="text-sm font-semibold text-ink">
                 <span class="rounded-full bg-[#EAF3DE] px-2 py-0.5 text-[10px] font-bold uppercase text-[#27500A]">{{ emp.tipo_ativo }}</span>
                 {{ nomeAtivo(emp) }}
+                <span v-if="nomeCategoria(emp.campeonato_categoria_id)" class="rounded-full bg-ink/10 px-2 py-0.5 text-[10px] font-bold text-ink-soft">{{ nomeCategoria(emp.campeonato_categoria_id) }}</span>
               </p>
               <p class="mt-1 text-xs text-ink-soft">
                 Retirado por {{ emp.responsavel_nome }} em {{ formatarDataHora(emp.retirado_em) }} ·
@@ -298,8 +323,21 @@ const concluidos = computed(() => emprestimos.value.filter((e) => e.devolvido_em
             </select>
           </div>
           <div>
+            <label class="font-mono-label text-[9px] font-bold text-ink-soft">Para qual categoria</label>
+            <select v-model="novaCategoriaId" class="mt-1 w-full rounded-xl border border-ink/15 bg-white px-4 py-2.5 text-sm text-ink outline-none focus:border-brand">
+              <option value="">Não vinculado a uma categoria</option>
+              <option v-for="c in categorias" :key="c.id" :value="c.id">{{ c.categoria }}</option>
+            </select>
+          </div>
+          <div>
             <label class="font-mono-label text-[9px] font-bold text-ink-soft">Responsável pela retirada</label>
-            <input v-model="novoResponsavel" type="text" class="mt-1 w-full rounded-xl border border-ink/15 bg-white px-4 py-2.5 text-sm text-ink outline-none focus:border-brand" />
+            <select v-model="novoResponsavel" class="mt-1 w-full rounded-xl border border-ink/15 bg-white px-4 py-2.5 text-sm text-ink outline-none focus:border-brand">
+              <option value="" disabled>Selecione...</option>
+              <option v-for="r in responsaveisElegiveis" :key="r.id" :value="r.nome">{{ r.nome }}</option>
+            </select>
+            <p v-if="responsaveisElegiveis.length === 0" class="mt-1 text-[10px] text-brand-deep">
+              Nenhum associado adimplente escalado neste campeonato ainda. Cadastre a equipe e confirme os pagamentos em dia na aba "Categorias e Equipe".
+            </p>
           </div>
           <label class="flex items-center gap-2 text-xs text-ink">
             <input v-model="confirmaRetirada" type="checkbox" class="h-4 w-4 rounded border-ink/30" />

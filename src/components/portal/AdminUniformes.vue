@@ -1,13 +1,16 @@
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, defineAsyncComponent } from 'vue'
 import { supabase } from '../../lib/supabase.js'
 import PaginacaoControle from './PaginacaoControle.vue'
 import UniformeFoto from './UniformeFoto.vue'
-import AdminUniformePecas from './AdminUniformePecas.vue'
+
+const AdminUniformePecas = defineAsyncComponent(() => import('./AdminUniformePecas.vue'))
 
 const jogos = ref([])
 const camisasPorJogo = ref({})
 const bermudasPorJogo = ref({})
+const participacoesPorJogo = ref({})
+const titulosPorJogo = ref({})
 const loading = ref(true)
 const loadError = ref('')
 const busca = ref('')
@@ -33,20 +36,25 @@ const novaFotoPreview = ref(null)
 async function carregar() {
   loading.value = true
   loadError.value = ''
-  const { data, error } = await supabase.from('jogos_uniforme').select('*').order('criado_em', { ascending: false })
-  if (error) {
-    loadError.value = error.message
+
+  const [jogosRes, pecasRes, emprestimosRes] = await Promise.all([
+    supabase.from('jogos_uniforme').select('*').order('criado_em', { ascending: false }),
+    supabase.from('uniformes').select('jogo_uniforme_id, tipo'),
+    supabase.from('campeonato_emprestimos').select('jogo_uniforme_id, campeonato_id, campeonato_categorias(colocacao)').eq('tipo_ativo', 'conjunto_uniforme').not('jogo_uniforme_id', 'is', null),
+  ])
+
+  if (jogosRes.error) {
+    loadError.value = jogosRes.error.message
     loading.value = false
     return
   }
-  jogos.value = data
+  jogos.value = jogosRes.data
 
   // Quantidades calculadas a partir das pecas individuais cadastradas:
   // toda peca tem camiseta; so as do tipo "completo" tem bermuda tambem.
-  const { data: pecas } = await supabase.from('uniformes').select('jogo_uniforme_id, tipo')
   const camisas = {}
   const bermudas = {}
-  ;(pecas ?? []).forEach((p) => {
+  ;(pecasRes.data ?? []).forEach((p) => {
     if (!p.jogo_uniforme_id) return
     camisas[p.jogo_uniforme_id] = (camisas[p.jogo_uniforme_id] ?? 0) + 1
     if (p.tipo === 'completo') {
@@ -56,7 +64,36 @@ async function carregar() {
   camisasPorJogo.value = camisas
   bermudasPorJogo.value = bermudas
 
+  // Campeonatos participados e titulos: calculados automaticamente a
+  // partir dos emprestimos do conjunto completo registrados em cada
+  // campeonato (aba Empréstimos de cada campeonato).
+  const participacoesSets = {}
+  const titulos = {}
+  ;(emprestimosRes.data ?? []).forEach((e) => {
+    if (!e.jogo_uniforme_id) return
+    if (!participacoesSets[e.jogo_uniforme_id]) participacoesSets[e.jogo_uniforme_id] = new Set()
+    participacoesSets[e.jogo_uniforme_id].add(e.campeonato_id)
+    if (e.campeonato_categorias?.colocacao === 'Campeão') {
+      titulos[e.jogo_uniforme_id] = (titulos[e.jogo_uniforme_id] ?? 0) + 1
+    }
+  })
+  const participacoes = {}
+  Object.keys(participacoesSets).forEach((id) => { participacoes[id] = participacoesSets[id].size })
+  participacoesPorJogo.value = participacoes
+  titulosPorJogo.value = titulos
+
   loading.value = false
+}
+
+function anosEmUso(dataConfeccao) {
+  if (!dataConfeccao) return null
+  const inicio = new Date(dataConfeccao + 'T00:00:00')
+  const hoje = new Date()
+  let anos = hoje.getFullYear() - inicio.getFullYear()
+  const aniversarioPassou = hoje.getMonth() > inicio.getMonth() ||
+    (hoje.getMonth() === inicio.getMonth() && hoje.getDate() >= inicio.getDate())
+  if (!aniversarioPassou) anos -= 1
+  return Math.max(0, anos)
 }
 
 onMounted(carregar)
@@ -224,26 +261,29 @@ function voltarLista() {
             </div>
             <p class="mt-1.5 text-center text-[10px] text-ink-soft/60">calculado a partir das peças cadastradas</p>
 
-            <div class="mt-3 grid grid-cols-2 gap-3">
-              <div>
-                <label class="font-mono-label text-[9px] font-bold text-ink-soft">Confeccionado em</label>
-                <input
-                  :value="j.data_confeccao"
-                  type="date"
-                  class="mt-1 w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs text-ink outline-none focus:border-brand"
-                  @change="(e) => { j.data_confeccao = e.target.value; salvarCampo(j, 'data_confeccao', e.target.value) }"
-                />
+            <div class="mt-3 grid grid-cols-3 gap-2 text-center">
+              <div class="rounded-lg bg-gold-soft py-2" title="Calculado a partir dos empréstimos registrados nos campeonatos">
+                <p class="font-display text-lg font-extrabold text-ink">{{ participacoesPorJogo[j.id] ?? 0 }}</p>
+                <p class="font-mono-label text-[8px] text-ink-soft">campeonatos</p>
               </div>
-              <div>
-                <label class="font-mono-label text-[9px] font-bold text-ink-soft" title="Atualizado manualmente até o módulo de Campeonatos existir">Campeonatos</label>
-                <input
-                  :value="j.campeonatos_participados"
-                  type="number"
-                  min="0"
-                  class="mt-1 w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs text-ink outline-none focus:border-brand"
-                  @change="(e) => { j.campeonatos_participados = e.target.value; salvarCampo(j, 'campeonatos_participados', Number(e.target.value) || 0) }"
-                />
+              <div class="rounded-lg bg-gold-soft py-2" title="Categorias em que este conjunto foi campeão">
+                <p class="font-display text-lg font-extrabold text-ink">🏆 {{ titulosPorJogo[j.id] ?? 0 }}</p>
+                <p class="font-mono-label text-[8px] text-ink-soft">títulos</p>
               </div>
+              <div class="rounded-lg bg-gold-soft py-2">
+                <p class="font-display text-lg font-extrabold text-ink">{{ anosEmUso(j.data_confeccao) ?? '—' }}</p>
+                <p class="font-mono-label text-[8px] text-ink-soft">anos de uso</p>
+              </div>
+            </div>
+
+            <div class="mt-3">
+              <label class="font-mono-label text-[9px] font-bold text-ink-soft">Confeccionado em</label>
+              <input
+                :value="j.data_confeccao"
+                type="date"
+                class="mt-1 w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs text-ink outline-none focus:border-brand"
+                @change="(e) => { j.data_confeccao = e.target.value; salvarCampo(j, 'data_confeccao', e.target.value) }"
+              />
             </div>
 
             <div class="mt-4 flex items-center justify-between">

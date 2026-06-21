@@ -1,7 +1,8 @@
 <script setup>
-import { ref } from 'vue'
-import AdminUniformes from './AdminUniformes.vue'
-import AdminBolas from './AdminBolas.vue'
+import { ref, defineAsyncComponent } from 'vue'
+
+const AdminUniformes = defineAsyncComponent(() => import('./AdminUniformes.vue'))
+const AdminBolas = defineAsyncComponent(() => import('./AdminBolas.vue'))
 
 const subaba = ref('uniformes')
 </script>

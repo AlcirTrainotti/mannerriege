@@ -5,6 +5,8 @@ import { supabase } from '../../lib/supabase.js'
 import { posicaoOptions } from '../../data/convidados.js'
 import { modalidadeOptions } from '../../data/portal.js'
 import { calcularCategoria } from '../../lib/categoria.js'
+import { buscarHistoricoParticipacoes } from '../../lib/historicoCampeonatos.js'
+import { brl } from '../../data/campeonatos.js'
 import PaginacaoControle from './PaginacaoControle.vue'
 import StarRating from './StarRating.vue'
 
@@ -124,6 +126,38 @@ async function removerConvidado(id) {
     return
   }
   convidados.value = convidados.value.filter((c) => c.id !== id)
+}
+
+// --- Historico de pagamentos em campeonatos ---
+const historicoAberto = ref(null) // id do convidado
+const historicoPorConvidado = ref({})
+const carregandoHistorico = ref({})
+
+async function alternarHistorico(convidadoId) {
+  if (historicoAberto.value === convidadoId) {
+    historicoAberto.value = null
+    return
+  }
+  historicoAberto.value = convidadoId
+  if (historicoPorConvidado.value[convidadoId]) return
+
+  carregandoHistorico.value = { ...carregandoHistorico.value, [convidadoId]: true }
+  const dados = await buscarHistoricoParticipacoes('convidado', convidadoId)
+  historicoPorConvidado.value = { ...historicoPorConvidado.value, [convidadoId]: dados }
+  carregandoHistorico.value = { ...carregandoHistorico.value, [convidadoId]: false }
+}
+
+function statusBadgeClasses(status) {
+  if (status === 'pago') return 'bg-[#EAF3DE] text-[#27500A]'
+  if (status === 'parcial') return 'bg-gold-soft text-ink'
+  if (status === 'sem_custo') return 'bg-ink/8 text-ink-soft'
+  return 'bg-brand-soft text-brand-deep'
+}
+function statusBadgeLabel(item) {
+  if (item.status === 'pago') return 'pago'
+  if (item.status === 'sem_custo') return 'sem custo'
+  if (item.status === 'parcial') return `${brl(item.totalPago)} de ${brl(item.rateio)}`
+  return `deve ${brl(item.rateio)}`
 }
 
 // --- Tornar associado (convidado que decidiu se associar) ---
@@ -333,8 +367,23 @@ async function confirmarConversao(c) {
           ></textarea>
         </div>
 
-        <div class="mt-3 rounded-xl border border-dashed border-ink/15 p-3 text-center">
-          <p class="text-xs text-ink-soft/70">Histórico de campeonatos aparecerá aqui assim que o módulo de Campeonatos for cadastrado.</p>
+        <div class="mt-3">
+          <button class="text-xs font-semibold text-brand-deep hover:underline" @click="alternarHistorico(c.id)">
+            {{ historicoAberto === c.id ? 'ocultar histórico de campeonatos' : 'ver histórico de campeonatos' }}
+          </button>
+
+          <div v-if="historicoAberto === c.id" class="mt-2 rounded-xl border border-dashed border-ink/15 p-3">
+            <p v-if="carregandoHistorico[c.id]" class="text-xs text-ink-soft">Carregando...</p>
+            <template v-else-if="(historicoPorConvidado[c.id] ?? []).length === 0">
+              <p class="text-xs text-ink-soft/70">Ainda não participou de nenhum campeonato cadastrado.</p>
+            </template>
+            <div v-else class="space-y-1.5">
+              <div v-for="(item, i) in historicoPorConvidado[c.id]" :key="i" class="flex items-center justify-between gap-2 text-xs">
+                <span class="text-ink-soft">{{ item.campeonatoNome }} · {{ item.categoria }}</span>
+                <span :class="['rounded-full px-2.5 py-1 font-semibold', statusBadgeClasses(item.status)]">{{ statusBadgeLabel(item) }}</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

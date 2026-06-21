@@ -168,9 +168,7 @@ function formatarDataAta(d) {
 }
 
 onMounted(async () => {
-  await carregarAvisos()
-  await carregarAtas()
-  await carregarMeusCampeonatos()
+  await Promise.all([carregarAvisos(), carregarAtas(), carregarMeusCampeonatos()])
   iniciarRealtime()
 })
 

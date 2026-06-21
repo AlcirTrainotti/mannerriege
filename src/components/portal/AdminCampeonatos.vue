@@ -1,9 +1,10 @@
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, defineAsyncComponent } from 'vue'
 import { supabase } from '../../lib/supabase.js'
 import { ufOptions, formatarDataCurta } from '../../data/campeonatos.js'
 import PaginacaoControle from './PaginacaoControle.vue'
-import CampeonatoDetalhe from './CampeonatoDetalhe.vue'
+
+const CampeonatoDetalhe = defineAsyncComponent(() => import('./CampeonatoDetalhe.vue'))
 
 const campeonatos = ref([])
 const loading = ref(true)
