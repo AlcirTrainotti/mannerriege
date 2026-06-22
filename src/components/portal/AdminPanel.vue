@@ -8,6 +8,7 @@ const AdminAssociados = defineAsyncComponent(() => import('./AdminAssociados.vue
 const AdminAvisos = defineAsyncComponent(() => import('./AdminAvisos.vue'))
 const AdminAtas = defineAsyncComponent(() => import('./AdminAtas.vue'))
 const EsportivoPanel = defineAsyncComponent(() => import('./EsportivoPanel.vue'))
+const FinanceiroPanel = defineAsyncComponent(() => import('./FinanceiroPanel.vue'))
 
 const { profile: meuPerfil, logout } = useAuth()
 const aba = ref('associados')
@@ -17,6 +18,7 @@ const titulos = {
   avisos: 'Avisos',
   atas: 'Atas',
   esportivo: 'Esportivo',
+  financeiro: 'Financeiro',
 }
 </script>
 
@@ -55,13 +57,19 @@ const titulos = {
         :class="aba === 'esportivo' ? 'bg-brand text-white' : 'bg-gold-soft text-ink hover:bg-gold-soft/70'"
         @click="aba = 'esportivo'"
       >🏐 Esportivo</button>
+      <button
+        class="rounded-full px-4 py-2 text-xs font-semibold transition-colors"
+        :class="aba === 'financeiro' ? 'bg-[#27500A] text-white' : 'bg-[#EAF3DE] text-[#27500A] hover:bg-[#EAF3DE]/70'"
+        @click="aba = 'financeiro'"
+      >💰 Financeiro</button>
     </div>
 
     <div class="mt-8">
       <AdminAssociados v-if="aba === 'associados'" />
       <AdminAvisos v-else-if="aba === 'avisos'" />
       <AdminAtas v-else-if="aba === 'atas'" />
-      <EsportivoPanel v-else :embedded="true" />
+      <EsportivoPanel v-else-if="aba === 'esportivo'" :embedded="true" />
+      <FinanceiroPanel v-else :embedded="true" />
     </div>
   </div>
 </template>

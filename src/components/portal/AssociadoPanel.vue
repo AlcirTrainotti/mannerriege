@@ -2,13 +2,29 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { supabase } from '../../lib/supabase.js'
 import { useAuth } from '../../lib/useAuth.js'
-import { modalidadeLabel, statusLabel } from '../../data/portal.js'
+import { modalidadeLabel, statusLabel, emailExibicao } from '../../data/portal.js'
 import { posicaoLabel } from '../../data/convidados.js'
 import { calcularCategoria, formatarData } from '../../lib/categoria.js'
 import Icon from '../Icon.vue'
 import AvatarUpload from './AvatarUpload.vue'
 import MarkdownContent from './MarkdownContent.vue'
 import { brl, formatarDataCurta } from '../../data/campeonatos.js'
+import { formatarCompetencia } from '../../data/financeiro.js'
+
+// --- Minhas mensalidades ---
+const minhasMensalidades = ref([])
+const loadingMensalidades = ref(true)
+
+async function carregarMinhasMensalidades() {
+  loadingMensalidades.value = true
+  const { data } = await supabase
+    .from('mensalidades')
+    .select('*')
+    .eq('associado_id', profile.value.id)
+    .order('competencia', { ascending: false })
+  minhasMensalidades.value = data ?? []
+  loadingMensalidades.value = false
+}
 
 const { profile, logout } = useAuth()
 
@@ -167,8 +183,59 @@ function formatarDataAta(d) {
   return new Date(d + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
 }
 
+// --- Resumo financeiro (todo associado ve) ---
+const resumoFinanceiro = ref(null)
+const loadingResumoFinanceiro = ref(true)
+
+async function carregarResumoFinanceiro() {
+  loadingResumoFinanceiro.value = true
+  const { data } = await supabase.rpc('resumo_financeiro_associado', { p_ano: new Date().getFullYear() })
+  resumoFinanceiro.value = data?.[0] ?? null
+  loadingResumoFinanceiro.value = false
+}
+
+// --- Aprovacao do conselho fiscal (so quem e conselheiro) ---
+const competenciasParaAprovar = ref([])
+const minhasAprovacoes = ref([])
+const loadingConselho = ref(true)
+const aprovandoCompetencia = ref(null)
+
+async function carregarConselhoFiscal() {
+  if (!profile.value?.conselheiro_fiscal) {
+    loadingConselho.value = false
+    return
+  }
+  loadingConselho.value = true
+  const [mensRes, aprovRes] = await Promise.all([
+    supabase.from('mensalidades').select('competencia'),
+    supabase.from('aprovacoes_mensais').select('*').eq('aprovado_por', profile.value.id),
+  ])
+  competenciasParaAprovar.value = [...new Set((mensRes.data ?? []).map((m) => m.competencia))].sort().reverse().slice(0, 6)
+  minhasAprovacoes.value = aprovRes.data ?? []
+  loadingConselho.value = false
+}
+
+function jaAprovei(competencia) {
+  return minhasAprovacoes.value.some((a) => a.competencia === competencia)
+}
+
+async function aprovarMes(competencia) {
+  aprovandoCompetencia.value = competencia
+  const { error } = await supabase.from('aprovacoes_mensais').insert({
+    competencia,
+    aprovado_por: profile.value.id,
+  })
+  aprovandoCompetencia.value = null
+  if (!error) {
+    minhasAprovacoes.value.push({ competencia, aprovado_por: profile.value.id })
+  }
+}
+
 onMounted(async () => {
-  await Promise.all([carregarAvisos(), carregarAtas(), carregarMeusCampeonatos()])
+  await Promise.all([
+    carregarAvisos(), carregarAtas(), carregarMeusCampeonatos(), carregarMinhasMensalidades(),
+    carregarResumoFinanceiro(), carregarConselhoFiscal(),
+  ])
   iniciarRealtime()
 })
 
@@ -244,17 +311,70 @@ onUnmounted(() => {
           <dt class="text-sm text-ink-soft">Telefone / WhatsApp</dt>
           <dd class="text-sm text-ink">{{ profile.telefone }}</dd>
         </div>
-        <div class="flex items-center justify-between">
+        <div v-if="emailExibicao(profile?.email)" class="flex items-center justify-between">
           <dt class="text-sm text-ink-soft">E-mail</dt>
-          <dd class="text-sm text-ink">{{ profile?.email }}</dd>
+          <dd class="text-sm text-ink">{{ emailExibicao(profile?.email) }}</dd>
         </div>
       </dl>
     </div>
 
-    <!-- Placeholder financeiro -->
-    <div class="mt-6 rounded-2xl border border-dashed border-ink/15 p-6 text-center">
-      <Icon name="calendar" class="mx-auto h-6 w-6 text-ink-soft/50" />
-      <p class="mt-2 text-sm text-ink-soft">Em breve: lista de mensalidades pagas e pendentes.</p>
+    <!-- Resumo financeiro do clube -->
+    <div class="mt-6">
+      <h2 class="font-display text-xl font-bold text-ink">Saúde financeira do clube</h2>
+      <p class="mt-0.5 text-xs text-ink-soft">Resumo aberto a todos os associados, atualizado em tempo real.</p>
+
+      <p v-if="loadingResumoFinanceiro" class="mt-4 text-sm text-ink-soft">Carregando...</p>
+      <div v-else-if="resumoFinanceiro" class="mt-4 grid gap-3 sm:grid-cols-2">
+        <div class="rounded-2xl p-5" :class="resumoFinanceiro.saldo >= 0 ? 'bg-[#EAF3DE]' : 'bg-brand-soft'">
+          <p class="font-mono-label text-[9px] font-bold" :class="resumoFinanceiro.saldo >= 0 ? 'text-[#27500A]' : 'text-brand-deep'">Saldo do ano</p>
+          <p class="mt-1 font-display text-xl font-extrabold" :class="resumoFinanceiro.saldo >= 0 ? 'text-[#27500A]' : 'text-brand-deep'">{{ brl(resumoFinanceiro.saldo) }}</p>
+        </div>
+        <div class="rounded-2xl bg-paper-dim p-5">
+          <p class="font-mono-label text-[9px] font-bold text-ink-soft">Associados em dia</p>
+          <p class="mt-1 font-display text-xl font-extrabold text-ink">{{ resumoFinanceiro.associados_adimplentes }}/{{ resumoFinanceiro.associados_total }}</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Conselho fiscal -->
+    <div v-if="profile?.conselheiro_fiscal" class="mt-6">
+      <h2 class="font-display text-xl font-bold text-ink">Aprovação do Conselho Fiscal</h2>
+      <p class="mt-0.5 text-xs text-ink-soft">Você está cadastrado(a) como conselheiro fiscal. Aprove os meses já conferidos.</p>
+
+      <p v-if="loadingConselho" class="mt-4 text-sm text-ink-soft">Carregando...</p>
+      <div v-else class="mt-4 divide-y divide-ink/8 rounded-2xl bg-white shadow-card">
+        <div v-for="c in competenciasParaAprovar" :key="c" class="flex items-center justify-between gap-3 px-5 py-3">
+          <span class="text-sm text-ink">{{ formatarCompetencia(c) }}</span>
+          <button
+            v-if="!jaAprovei(c)"
+            :disabled="aprovandoCompetencia === c"
+            class="rounded-full bg-brand px-3 py-1.5 text-xs font-bold text-white hover:bg-brand-deep disabled:opacity-50"
+            @click="aprovarMes(c)"
+          >{{ aprovandoCompetencia === c ? 'Aprovando...' : 'Aprovar' }}</button>
+          <span v-else class="rounded-full bg-[#EAF3DE] px-3 py-1.5 text-xs font-bold text-[#27500A]">✓ aprovado por você</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Minhas mensalidades -->
+    <div class="mt-6">
+      <h2 class="font-display text-xl font-bold text-ink">Minhas mensalidades</h2>
+      <p class="mt-0.5 text-xs text-ink-soft">Situação dos seus últimos pagamentos com a associação.</p>
+
+      <p v-if="loadingMensalidades" class="mt-4 text-sm text-ink-soft">Carregando...</p>
+      <div v-else-if="minhasMensalidades.length === 0" class="mt-4 rounded-2xl border border-dashed border-ink/15 p-6 text-center">
+        <Icon name="calendar" class="mx-auto h-6 w-6 text-ink-soft/50" />
+        <p class="mt-2 text-sm text-ink-soft">Nenhuma mensalidade lançada ainda.</p>
+      </div>
+      <div v-else class="mt-4 divide-y divide-ink/8 rounded-2xl bg-white shadow-card">
+        <div v-for="m in minhasMensalidades" :key="m.id" class="flex items-center justify-between gap-3 px-5 py-3">
+          <span class="text-sm text-ink">{{ formatarCompetencia(m.competencia) }} · {{ brl(m.valor) }}</span>
+          <span
+            class="rounded-full px-3 py-1 text-xs font-semibold"
+            :class="m.pago ? 'bg-[#EAF3DE] text-[#27500A]' : 'bg-brand-soft text-brand-deep'"
+          >{{ m.pago ? '✓ pago' : 'pendente' }}</span>
+        </div>
+      </div>
     </div>
 
     <!-- ===== AVISOS ===== -->

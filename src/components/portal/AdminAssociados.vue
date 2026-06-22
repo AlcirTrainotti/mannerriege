@@ -3,7 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { createClient } from '@supabase/supabase-js'
 import { supabase } from '../../lib/supabase.js'
 import { calcularCategoria } from '../../lib/categoria.js'
-import { modalidadeOptions, roleOptions, statusOptions } from '../../data/portal.js'
+import { modalidadeOptions, roleOptions, statusOptions, emailExibicao } from '../../data/portal.js'
 import { posicaoOptions } from '../../data/convidados.js'
 import { buscarHistoricoParticipacoes } from '../../lib/historicoCampeonatos.js'
 import { brl } from '../../data/campeonatos.js'
@@ -109,14 +109,15 @@ const novoNascimento = ref('')
 const novoAssociacao = ref('')
 const novoModalidade = ref('volei')
 const novoPosicao = ref(null)
+const novoSocioGinastico = ref(false)
 const novoTelefone = ref('')
 const adicionando = ref(false)
 const addError = ref('')
 
 async function adicionarAssociado() {
   addError.value = ''
-  if (!novoNome.value.trim() || !novoEmail.value.trim() || !novaSenha.value.trim()) {
-    addError.value = 'Preencha nome, e-mail e senha.'
+  if (!novoNome.value.trim() || !novoTelefone.value.trim() || !novaSenha.value.trim()) {
+    addError.value = 'Preencha nome, telefone e senha.'
     return
   }
   adicionando.value = true
@@ -126,8 +127,14 @@ async function adicionarAssociado() {
   const key = import.meta.env.VITE_SUPABASE_ANON_KEY
   const clienteTemp = createClient(url, key, { auth: { storageKey: 'signup-temp' } })
 
+  // E-mail e opcional - se nao for informado, geramos um a partir do
+  // telefone so para o login funcionar (o Supabase exige um e-mail
+  // unico). Na tela, isso aparece como "sem e-mail".
+  const telefoneDigitos = novoTelefone.value.replace(/\D/g, '')
+  const emailParaLogin = novoEmail.value.trim() || `${telefoneDigitos}@sememail.mannerriege.com.br`
+
   const { data, error: signupError } = await clienteTemp.auth.signUp({
-    email: novoEmail.value.trim(),
+    email: emailParaLogin,
     password: novaSenha.value,
     options: { data: { nome: novoNome.value.trim() } },
   })
@@ -148,6 +155,7 @@ async function adicionarAssociado() {
   if (novoModalidade.value) camposExtras.modalidade = novoModalidade.value
   if (novoTelefone.value) camposExtras.telefone = novoTelefone.value
   if (novoPosicao.value) camposExtras.posicao = novoPosicao.value
+  camposExtras.socio_ginastico = novoSocioGinastico.value
 
   if (Object.keys(camposExtras).length) {
     // Aguarda o trigger criar o profile
@@ -165,6 +173,7 @@ async function adicionarAssociado() {
   novoModalidade.value = 'volei'
   novoTelefone.value = ''
   novoPosicao.value = null
+  novoSocioGinastico.value = false
   await carregar()
 }
 
@@ -353,7 +362,7 @@ function statusClasses(status) {
                 class="w-full rounded-lg border border-transparent bg-transparent px-0 py-0.5 text-sm font-semibold text-ink outline-none hover:border-ink/15 focus:border-brand focus:bg-paper-dim focus:px-2"
                 @change="(e) => { a.nome = e.target.value; salvarCampo(a, 'nome', e.target.value) }"
               />
-              <p class="text-xs text-ink-soft">{{ a.email }}</p>
+              <p class="text-xs text-ink-soft">{{ emailExibicao(a.email) || 'sem e-mail cadastrado' }}</p>
             </div>
           </div>
           <div class="flex flex-wrap items-center gap-2">
@@ -456,6 +465,30 @@ function statusClasses(status) {
             </select>
           </div>
           <div>
+            <label class="font-mono-label text-[9px] font-bold text-ink-soft" title="Define o valor da mensalidade: R$30 se for sócio, R$50 se não for">Sócio do ginástico</label>
+            <label class="mt-1 flex h-[34px] items-center gap-2 rounded-lg border border-ink/15 bg-white px-3 text-xs text-ink">
+              <input
+                type="checkbox"
+                :checked="a.socio_ginastico"
+                class="h-3.5 w-3.5 rounded border-ink/30"
+                @change="(e) => { a.socio_ginastico = e.target.checked; salvarCampo(a, 'socio_ginastico', e.target.checked) }"
+              />
+              {{ a.socio_ginastico ? 'Sim (R$30)' : 'Não (R$50)' }}
+            </label>
+          </div>
+          <div>
+            <label class="font-mono-label text-[9px] font-bold text-ink-soft" title="Pode aprovar mensalmente as contas do clube">Conselheiro fiscal</label>
+            <label class="mt-1 flex h-[34px] items-center gap-2 rounded-lg border border-ink/15 bg-white px-3 text-xs text-ink">
+              <input
+                type="checkbox"
+                :checked="a.conselheiro_fiscal"
+                class="h-3.5 w-3.5 rounded border-ink/30"
+                @change="(e) => { a.conselheiro_fiscal = e.target.checked; salvarCampo(a, 'conselheiro_fiscal', e.target.checked) }"
+              />
+              {{ a.conselheiro_fiscal ? 'Sim' : 'Não' }}
+            </label>
+          </div>
+          <div>
             <label class="font-mono-label text-[9px] font-bold text-ink-soft">Status</label>
             <select
               :value="a.status"
@@ -510,7 +543,7 @@ function statusClasses(status) {
             <input v-model="novoNome" type="text" class="mt-1 w-full rounded-xl border border-ink/15 bg-white px-4 py-2.5 text-sm text-ink outline-none focus:border-brand" />
           </div>
           <div>
-            <label class="font-mono-label text-[9px] font-bold text-ink-soft">E-mail *</label>
+            <label class="font-mono-label text-[9px] font-bold text-ink-soft">E-mail (opcional)</label>
             <input v-model="novoEmail" type="email" class="mt-1 w-full rounded-xl border border-ink/15 bg-white px-4 py-2.5 text-sm text-ink outline-none focus:border-brand" />
           </div>
           <div>
@@ -528,7 +561,7 @@ function statusClasses(status) {
             </div>
           </div>
           <div class="sm:col-span-2">
-            <label class="font-mono-label text-[9px] font-bold text-ink-soft">Telefone / WhatsApp</label>
+            <label class="font-mono-label text-[9px] font-bold text-ink-soft">Telefone / WhatsApp *</label>
             <input v-model="novoTelefone" type="tel" placeholder="(47) 9 9999-9999"
               class="mt-1 w-full rounded-xl border border-ink/15 bg-white px-4 py-2.5 text-sm text-ink outline-none focus:border-brand" />
           </div>
@@ -547,6 +580,10 @@ function statusClasses(status) {
               </select>
             </div>
           </div>
+          <label class="flex items-center gap-2 text-xs text-ink">
+            <input v-model="novoSocioGinastico" type="checkbox" class="h-4 w-4 rounded border-ink/30" />
+            É sócio do ginástico (mensalidade R$30, em vez de R$50)
+          </label>
           <p v-if="addError" class="text-xs text-brand-deep">{{ addError }}</p>
         </div>
 

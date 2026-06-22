@@ -8,6 +8,7 @@ import LoginForm from '../components/portal/LoginForm.vue'
 const AssociadoPanel = defineAsyncComponent(() => import('../components/portal/AssociadoPanel.vue'))
 const AdminPanel = defineAsyncComponent(() => import('../components/portal/AdminPanel.vue'))
 const EsportivoPanel = defineAsyncComponent(() => import('../components/portal/EsportivoPanel.vue'))
+const FinanceiroPanel = defineAsyncComponent(() => import('../components/portal/FinanceiroPanel.vue'))
 
 const { user, profile, loading, profileError } = useAuth()
 </script>
@@ -26,6 +27,7 @@ const { user, profile, loading, profileError } = useAuth()
 
       <AdminPanel v-else-if="profile?.role === 'admin'" />
       <EsportivoPanel v-else-if="profile?.role === 'coordenador_esportivo'" />
+      <FinanceiroPanel v-else-if="profile?.role === 'tesoureiro'" />
       <AssociadoPanel v-else />
     </div>
   </section>
