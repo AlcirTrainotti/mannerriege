@@ -1,0 +1,146 @@
+---
+import Layout from '../../layouts/Layout.astro'
+import NavBar from '../../components/NavBar.astro'
+import SiteFooter from '../../components/SiteFooter.astro'
+import PageHero from '../../components/PageHero.astro'
+import SectionTag from '../../components/SectionTag.astro'
+import CtaButton from '../../components/CtaButton.astro'
+import StatBlock from '../../components/StatBlock.astro'
+
+import heroImg from '../../assets/img/clube-convivio.jpg'
+import ricardoImg from '../../assets/img/ricardo-perini.jpg'
+import eduardoImg from '../../assets/img/eduardo-perini.jpg'
+
+const foundedYear = 1949
+const anos = new Date().getFullYear() - foundedYear
+
+const diretoria = [
+  {
+    nome: 'Eduardo Perini de Aviz',
+    cargo: 'Presidente',
+    img: eduardoImg,
+    bio: 'Formado nas categorias de base do voleibol de Joinville, foi bicampeão da Superliga atuando ao lado de Bruninho e companhia. Hoje é preparador físico do Joinville Vôlei e está à frente da estruturação técnica e física do Vôlei de Base.',
+  },
+  {
+    nome: 'Ricardo Perini de Aviz',
+    cargo: 'Vice-Presidente · Coordenador de Vôlei de Base',
+    img: ricardoImg,
+    bio: 'Ex-atleta profissional, encerrou a carreira em 2024 e retornou a Joinville. Vice-campeão do Mundial Sub-19, campeão brasileiro de base, bicampeão catarinense e títulos nas ligas de Israel e Portugal. Hoje coordena o Vôlei de Base e a aproximação do projeto com as escolas da região.',
+  },
+]
+
+const institucional = [
+  { label: 'Razão social', valor: 'Mannerriege Associação Desportiva de Voleibol' },
+  { label: 'CNPJ', valor: '59.879.461/0001-29' },
+  { label: 'Natureza jurídica', valor: 'Associação sem fins lucrativos' },
+  { label: 'Sede', valor: 'Rua dos Ginásticos, nº 96 — Centro, Joinville/SC' },
+  { label: 'Gestão atual', valor: 'Diretoria 2026/2027' },
+]
+---
+<Layout
+  title="Transparência — Mannerriege"
+  description="Dados institucionais, diretoria e indicadores macro do Mannerriege — Vôlei Master e Vôlei de Base. CNPJ 59.879.461/0001-29, Joinville/SC."
+>
+  <NavBar />
+
+  <PageHero
+    eyebrow="Institucional"
+    title="Transparência"
+    subtitle="Quem dirige o clube, os dados institucionais e os números que sustentam o Vôlei Master e o Vôlei de Base."
+    image={heroImg}
+  />
+
+  <main>
+    <!-- DADOS INSTITUCIONAIS -->
+    <section class="bg-paper py-20">
+      <div class="mx-auto max-w-7xl px-5 sm:px-8">
+        <div class="reveal max-w-2xl">
+          <SectionTag text="Dados institucionais" />
+          <h2 class="mt-4 font-display text-4xl font-extrabold text-ink sm:text-5xl">
+            {anos} anos de existência, formalizados
+          </h2>
+        </div>
+        <div class="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-5">
+          {institucional.map((i, idx) => (
+            <div class="reveal rounded-2xl border border-ink/8 bg-white p-6 shadow-card" style={`transition-delay: ${idx * 60}ms`}>
+              <p class="font-mono-label text-[10px] font-bold text-ink-soft">{i.label}</p>
+              <p class="mt-2 font-display text-lg font-bold leading-snug text-ink">{i.valor}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <!-- DIRETORIA -->
+    <section id="diretoria" class="bg-paper-dim py-24">
+      <div class="mx-auto max-w-5xl px-5 sm:px-8">
+        <div class="reveal max-w-2xl">
+          <SectionTag text="Quem dirige" />
+          <h2 class="mt-4 font-display text-4xl font-extrabold text-ink sm:text-5xl">
+            Diretoria 2026/2027
+          </h2>
+          <p class="mt-5 leading-relaxed text-ink-soft">
+            Dois irmãos que viveram o alto rendimento do voleibol nacional e internacional e voltaram
+            para dirigir o clube que os formou.
+          </p>
+        </div>
+
+        <div class="mt-12 grid gap-6 sm:grid-cols-2">
+          {diretoria.map((d, i) => (
+            <div class="reveal rounded-2xl bg-white p-7 shadow-card" style={`transition-delay: ${i * 100}ms`}>
+              <img
+                src={d.img.src ?? d.img}
+                alt={d.nome}
+                class="aspect-[4/5] w-32 rounded-xl object-cover shadow-lift sm:w-36"
+              />
+              <p class="mt-5 font-display text-xl font-bold text-ink">{d.nome}</p>
+              <p class="mt-1 font-mono-label text-[10px] font-bold text-brand-deep">{d.cargo}</p>
+              <p class="mt-4 text-sm leading-relaxed text-ink-soft">{d.bio}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <!-- INDICADORES MACRO -->
+    <section class="bg-ink py-24">
+      <div class="mx-auto max-w-7xl px-5 sm:px-8">
+        <div class="reveal max-w-2xl">
+          <SectionTag text="Indicadores macro" />
+          <h2 class="mt-4 font-display text-4xl font-extrabold text-white sm:text-5xl">
+            Vôlei Master e Vôlei de Base em números
+          </h2>
+          <p class="mt-5 leading-relaxed text-paper/70">
+            O Vôlei Master é autossustentado, mantido com recursos próprios dos associados. O Vôlei de
+            Base é o projeto social novo do clube, com captação de apoio em andamento para sua Fase 1.
+          </p>
+        </div>
+
+        <div class="mt-14 grid gap-10 sm:grid-cols-3">
+          <StatBlock to={anos} label="Anos de clube" light />
+          <StatBlock to={40} label="Associados · Vôlei Master" light />
+          <StatBlock to={40} label="Atletas · Vôlei de Base (Fase 1)" light />
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="bg-brand py-20">
+      <div class="mx-auto flex max-w-7xl flex-col items-start justify-between gap-8 px-5 sm:px-8 lg:flex-row lg:items-center">
+        <div class="reveal max-w-xl">
+          <h2 class="font-display text-3xl font-extrabold uppercase text-white sm:text-4xl">
+            Dúvidas sobre a gestão do clube?
+          </h2>
+          <p class="mt-3 leading-relaxed text-white/85">
+            Fale com a diretoria pelos canais oficiais do Mannerriege.
+          </p>
+        </div>
+        <div class="reveal flex flex-shrink-0 flex-wrap gap-4" style="transition-delay: 100ms">
+          <CtaButton href="/apoie" variant="outline-light" magnetic>Ver cotas de patrocínio</CtaButton>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <SiteFooter />
+</Layout>

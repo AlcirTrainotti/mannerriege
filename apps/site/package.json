@@ -1,0 +1,18 @@
+{
+  "name": "mannerriege-site",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview"
+  },
+  "dependencies": {
+    "astro": "^7.1.6",
+    "@astrojs/vue": "^7.0.1",
+    "@tailwindcss/vite": "^4.3.3",
+    "tailwindcss": "^4.3.3",
+    "vue": "^3.5.34"
+  }
+}

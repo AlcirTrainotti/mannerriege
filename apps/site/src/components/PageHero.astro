@@ -1,0 +1,27 @@
+---
+interface Props {
+  eyebrow?: string
+  title: string
+  subtitle?: string
+  image?: ImageMetadata
+}
+const { eyebrow = '', title, subtitle = '', image } = Astro.props as Props
+---
+<section class="relative overflow-hidden bg-ink pb-16 pt-40 sm:pb-20 sm:pt-48">
+  {image && (
+    <>
+      <img src={image.src ?? image} alt="" class="absolute inset-0 h-full w-full object-cover" />
+      <div class="absolute inset-0 bg-gradient-to-t from-ink via-ink/80 to-ink/50"></div>
+    </>
+  )}
+  <div class="hatch-mark pointer-events-none absolute -right-10 top-16 h-40 w-40 rotate-12 text-brand/70 sm:h-56 sm:w-56"></div>
+  {!image && <div class="pointer-events-none absolute -left-24 bottom-0 h-72 w-72 rounded-full bg-brand/10 blur-3xl"></div>}
+
+  <div class="relative mx-auto w-full max-w-5xl px-5 sm:px-8">
+    {eyebrow && <p class="font-mono-label text-[11px] font-bold text-brand">{eyebrow}</p>}
+    <h1 class="mt-4 font-display text-5xl font-extrabold uppercase leading-none text-white sm:text-7xl lg:text-8xl">
+      {title}
+    </h1>
+    {subtitle && <p class="mt-5 max-w-2xl text-lg text-paper/70">{subtitle}</p>}
+  </div>
+</section>

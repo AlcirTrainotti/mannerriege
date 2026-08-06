@@ -1,0 +1,38 @@
+---
+import logo from '../assets/img/logo-mannerriege.png'
+
+const links = [
+  { href: '/master', label: 'Vôlei Master' },
+  { href: '/base', label: 'Vôlei de Base' },
+  { href: '/historia', label: 'História' },
+  { href: '/transparencia', label: 'Transparência' },
+]
+---
+<header class="absolute inset-x-0 top-0 z-40">
+  <div class="relative mx-auto max-w-7xl px-5 sm:px-8">
+    <!-- linha do menu: altura sempre compacta, independente do tamanho da logo -->
+    <nav class="flex items-center justify-between py-5">
+      <span class="w-16 sm:w-24" aria-hidden="true"></span>
+      <div class="hidden items-center gap-8 lg:flex">
+        {links.map((l) => (
+          <a href={l.href} class="font-mono-label text-[11px] font-bold text-white/80 transition-colors hover:text-white">
+            {l.label}
+          </a>
+        ))}
+      </div>
+      <div class="flex items-center gap-3">
+        <a href="/apoie" class="hidden rounded-full border border-white/40 px-4 py-2 font-mono-label text-[11px] font-bold text-white transition-colors hover:bg-white hover:text-ink sm:inline-flex">
+          Apoie o projeto
+        </a>
+        <a href="/associe-se" class="inline-flex rounded-full bg-brand px-4 py-2 font-mono-label text-[11px] font-bold text-white transition-colors hover:bg-brand-deep">
+          Quero jogar
+        </a>
+      </div>
+    </nav>
+
+    <!-- logo: posicionada por fora do fluxo da nav, pode ser grande sem empurrar o menu -->
+    <a href="/" class="absolute left-5 top-2 z-10 sm:left-8">
+      <img src={logo.src ?? logo} alt="Mannerriege" class="h-16 w-auto drop-shadow-lg sm:h-20" />
+    </a>
+  </div>
+</header>

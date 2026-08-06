@@ -1,0 +1,142 @@
+---
+import Layout from '../../layouts/Layout.astro'
+import NavBar from '../../components/NavBar.astro'
+import SiteFooter from '../../components/SiteFooter.astro'
+import PageHero from '../../components/PageHero.astro'
+import SectionTag from '../../components/SectionTag.astro'
+import Icon from '../../components/Icon.astro'
+
+import heroImg from '../../assets/img/clube-convivio.jpg'
+---
+<Layout
+  title="Fale conosco — Mannerriege"
+  description="Envie uma mensagem para a diretoria do Mannerriege. Deixe seu nome, e-mail, telefone e a mensagem que quer enviar."
+>
+  <NavBar />
+
+  <PageHero
+    eyebrow="Fale conosco"
+    title="Fale conosco"
+    subtitle="Dúvidas, ideias ou uma mensagem para a diretoria — conta pra gente."
+    image={heroImg}
+  />
+
+  <main>
+    <section class="bg-paper py-24">
+      <div class="mx-auto max-w-2xl px-5 sm:px-8">
+        <div class="reveal text-center">
+          <SectionTag text="Envie uma mensagem" />
+          <h2 class="mt-4 font-display text-3xl font-extrabold text-ink sm:text-4xl">
+            Fale com a diretoria
+          </h2>
+          <p class="mt-3 leading-relaxed text-ink-soft">
+            Preencha os dados abaixo e a diretoria do Mannerriege responde pelo e-mail ou telefone
+            informado.
+          </p>
+        </div>
+
+        <form id="form-contato" class="reveal mt-10 space-y-6" style="transition-delay: 100ms">
+          <div>
+            <label for="nome" class="font-mono-label text-[11px] font-bold text-ink-soft">Nome completo *</label>
+            <input
+              id="nome" name="nome" type="text" required
+              class="mt-2 w-full rounded-xl border border-ink/15 bg-white px-4 py-3 text-ink outline-none transition-colors focus:border-brand"
+              placeholder="Seu nome completo"
+            />
+          </div>
+
+          <div class="grid gap-6 sm:grid-cols-2">
+            <div>
+              <label for="email" class="font-mono-label text-[11px] font-bold text-ink-soft">E-mail *</label>
+              <input
+                id="email" name="email" type="email" required
+                class="mt-2 w-full rounded-xl border border-ink/15 bg-white px-4 py-3 text-ink outline-none transition-colors focus:border-brand"
+                placeholder="email@exemplo.com"
+              />
+            </div>
+            <div>
+              <label for="telefone" class="font-mono-label text-[11px] font-bold text-ink-soft">Telefone com WhatsApp *</label>
+              <input
+                id="telefone" name="telefone" type="tel" required
+                class="mt-2 w-full rounded-xl border border-ink/15 bg-white px-4 py-3 text-ink outline-none transition-colors focus:border-brand"
+                placeholder="(47) 99999-9999"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label for="mensagem" class="font-mono-label text-[11px] font-bold text-ink-soft">Mensagem *</label>
+            <textarea
+              id="mensagem" name="mensagem" required rows="5"
+              class="mt-2 w-full rounded-xl border border-ink/15 bg-white px-4 py-3 text-ink outline-none transition-colors focus:border-brand"
+              placeholder="Escreva sua mensagem para a diretoria"
+            ></textarea>
+          </div>
+
+          <button
+            type="submit"
+            class="js-submit-btn inline-flex w-full items-center justify-center gap-2 rounded-full bg-brand px-6 py-4 font-mono-label text-[11px] font-bold text-white transition-all hover:-translate-y-0.5 hover:bg-brand-deep disabled:opacity-60 sm:w-auto"
+          >
+            <span class="js-submit-label">Enviar mensagem</span>
+            <Icon name="arrow-right" class="h-3.5 w-3.5" />
+          </button>
+
+          <p class="js-form-error hidden text-sm font-medium text-brand-deep"></p>
+        </form>
+
+        <div id="form-sucesso" class="reveal hidden rounded-2xl bg-white p-10 text-center shadow-card">
+          <Icon name="mail" class="mx-auto h-10 w-10 text-brand" />
+          <h3 class="mt-4 font-display text-2xl font-bold text-ink">Mensagem enviada!</h3>
+          <p class="mt-2 leading-relaxed text-ink-soft">
+            Obrigado por entrar em contato. A diretoria do Mannerriege vai responder em breve.
+          </p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <SiteFooter />
+
+  <script define:vars={{ supabaseUrl: import.meta.env.PUBLIC_SUPABASE_URL, supabaseAnonKey: import.meta.env.PUBLIC_SUPABASE_ANON_KEY }}>
+    const form = document.getElementById('form-contato')
+    const sucesso = document.getElementById('form-sucesso')
+
+    form?.addEventListener('submit', async (e) => {
+      e.preventDefault()
+      const btn = form.querySelector('.js-submit-btn')
+      const label = form.querySelector('.js-submit-label')
+      const errorEl = form.querySelector('.js-form-error')
+      errorEl.classList.add('hidden')
+
+      const data = Object.fromEntries(new FormData(form).entries())
+
+      btn.disabled = true
+      label.textContent = 'Enviando...'
+
+      try {
+        const res = await fetch(`${supabaseUrl}/functions/v1/fale-conosco`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: supabaseAnonKey,
+            Authorization: `Bearer ${supabaseAnonKey}`,
+          },
+          body: JSON.stringify(data),
+        })
+
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}))
+          throw new Error(body.error || 'Não foi possível enviar agora. Tente novamente.')
+        }
+
+        form.classList.add('hidden')
+        sucesso?.classList.remove('hidden')
+      } catch (err) {
+        errorEl.textContent = err instanceof Error ? err.message : 'Erro inesperado. Tente novamente.'
+        errorEl.classList.remove('hidden')
+        btn.disabled = false
+        label.textContent = 'Enviar mensagem'
+      }
+    })
+  </script>
+</Layout>

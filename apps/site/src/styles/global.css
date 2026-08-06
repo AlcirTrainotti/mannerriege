@@ -1,0 +1,119 @@
+@import "tailwindcss";
+
+/* ====================================================
+   MANNERRIEGE — design tokens (mesmos do portal/site atual)
+   ==================================================== */
+@theme {
+  --color-ink: #18130f;
+  --color-ink-soft: #4a423c;
+  --color-paper: #faf6ef;
+  --color-paper-dim: #f1ebe0;
+  --color-white: #ffffff;
+  --color-brand: #ed1b24;
+  --color-brand-deep: #9c0f17;
+  --color-brand-soft: #fde4e2;
+  --color-gold: #c08a2e;
+  --color-gold-soft: #f3e3c2;
+  --color-navy: #131c2e;
+
+  --font-display: "Big Shoulders Display", "Arial Narrow", sans-serif;
+  --font-body: "Manrope", system-ui, sans-serif;
+  --font-mono: "Space Mono", ui-monospace, monospace;
+
+  --shadow-card: 0 1px 2px rgba(24,19,15,0.04), 0 16px 32px -16px rgba(24,19,15,0.18);
+  --shadow-lift: 0 24px 48px -20px rgba(24,19,15,0.28);
+}
+
+@font-face {
+  font-family: "Big Shoulders Display";
+  src: local("Big Shoulders Display");
+  font-weight: 400 900;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-body);
+  background-color: var(--color-paper);
+  color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
+  line-height: 0.95;
+}
+
+.font-mono-label {
+  font-family: var(--font-mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.hatch-mark {
+  background-image: repeating-linear-gradient(
+    115deg,
+    currentColor 0px,
+    currentColor 2px,
+    transparent 2px,
+    transparent 9px
+  );
+}
+
+/* ---- Scroll reveal: IntersectionObserver puro, sem dependencia ---- */
+.reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+.reveal-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ---- Scroll horizontal de troféus (seção "trajetória vitoriosa") ---- */
+.trophy-track {
+  scrollbar-width: none;
+}
+.trophy-track::-webkit-scrollbar {
+  display: none;
+}
+
+/* ---- Hero: entrada em escala/fade do título (kinetic-lite) ---- */
+.hero-kinetic {
+  opacity: 0;
+  transform: scale(0.94) translateY(18px);
+  animation: hero-in 1.1s cubic-bezier(0.16, 1, 0.3, 1) 0.15s forwards;
+}
+@keyframes hero-in {
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* ---- Botao magnetico: leve translacao via custom properties setadas por JS ---- */
+.magnetic {
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  transform: translate(var(--mx, 0), var(--my, 0));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal,
+  .hero-kinetic {
+    opacity: 1 !important;
+    transform: none !important;
+    animation: none !important;
+    transition: none !important;
+  }
+  .magnetic {
+    transform: none !important;
+  }
+  html {
+    scroll-behavior: auto;
+  }
+}

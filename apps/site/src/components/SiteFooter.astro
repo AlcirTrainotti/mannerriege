@@ -1,0 +1,52 @@
+---
+import Icon from './Icon.astro'
+---
+<footer class="bg-ink py-16 text-white/70">
+  <div class="mx-auto max-w-7xl px-5 sm:px-8">
+    <div class="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
+      <div>
+        <p class="font-display text-2xl font-extrabold uppercase text-white">Mannerriege</p>
+        <p class="mt-3 max-w-xs text-sm leading-relaxed">
+          Associação Desportiva de Voleibol — Joinville/SC, desde 1949.
+        </p>
+      </div>
+      <div>
+        <p class="font-mono-label text-[11px] font-bold text-white/50">Navegue</p>
+        <ul class="mt-4 space-y-2 text-sm">
+          <li><a href="/master" class="hover:text-white">Vôlei Master</a></li>
+          <li><a href="/base" class="hover:text-white">Vôlei de Base</a></li>
+          <li><a href="/historia" class="hover:text-white">História</a></li>
+          <li><a href="/transparencia#diretoria" class="hover:text-white">Diretoria</a></li>
+          <li><a href="/transparencia" class="hover:text-white">Transparência</a></li>
+        </ul>
+      </div>
+      <div>
+        <p class="font-mono-label text-[11px] font-bold text-white/50">Participe</p>
+        <ul class="mt-4 space-y-2 text-sm">
+          <li><a href="/associe-se" class="hover:text-white">Quero ser associado</a></li>
+          <li><a href="/apoie" class="hover:text-white">Cotas de patrocínio</a></li>
+          <li><a href="/contato" class="hover:text-white">Fale conosco</a></li>
+        </ul>
+      </div>
+      <div>
+        <p class="font-mono-label text-[11px] font-bold text-white/50">Contato</p>
+        <div class="mt-4 flex items-start gap-2 text-sm">
+          <Icon name="pin" class="mt-0.5 h-4 w-4 flex-shrink-0" />
+          <span>Rua dos Ginásticos, nº 96 — Centro, Joinville/SC</span>
+        </div>
+        <div class="mt-3 flex gap-3">
+          <a href="https://instagram.com/mannerriege" target="_blank" rel="noopener" class="hover:text-white" aria-label="Instagram">
+            <Icon name="instagram" class="h-5 w-5" />
+          </a>
+          <a href="mailto:mannerriege1949@gmail.com" class="hover:text-white" aria-label="E-mail">
+            <Icon name="mail" class="h-5 w-5" />
+          </a>
+        </div>
+      </div>
+    </div>
+    <div class="mt-12 flex flex-col gap-2 border-t border-white/10 pt-6 text-xs text-white/40 sm:flex-row sm:items-center sm:justify-between">
+      <p>&copy; {new Date().getFullYear()} Mannerriege Associação Desportiva de Voleibol — CNPJ 59.879.461/0001-29</p>
+      <a href="/privacidade" class="hover:text-white/70">Política de privacidade</a>
+    </div>
+  </div>
+</footer>

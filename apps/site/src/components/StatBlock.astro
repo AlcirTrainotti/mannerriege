@@ -1,0 +1,22 @@
+---
+interface Props {
+  to: number
+  suffix?: string
+  label: string
+  light?: boolean
+}
+const { to, suffix = '', label, light = false } = Astro.props as Props
+---
+<div>
+  <p
+    class:list={[
+      'js-counter font-display text-4xl font-extrabold sm:text-5xl',
+      light ? 'text-white' : 'text-brand',
+    ]}
+    data-counter-to={to}
+    data-counter-suffix={suffix}
+  >0{suffix}</p>
+  <p class:list={['mt-1 font-mono-label text-[11px] font-bold', light ? 'text-white/60' : 'text-ink-soft']}>
+    {label}
+  </p>
+</div>

@@ -1,0 +1,189 @@
+---
+import Layout from '../../layouts/Layout.astro'
+import NavBar from '../../components/NavBar.astro'
+import SiteFooter from '../../components/SiteFooter.astro'
+import PageHero from '../../components/PageHero.astro'
+import SectionTag from '../../components/SectionTag.astro'
+import Icon from '../../components/Icon.astro'
+
+import heroImg from '../../assets/img/hero-time.jpg'
+
+const formas = [
+  { icon: 'pin', titulo: 'Cedendo espaços', texto: 'Quadras, salas ou estrutura que ajudem os treinos e as atividades do projeto.' },
+  { icon: 'volleyball', titulo: 'Doando materiais', texto: 'Bolas, redes, coletes e equipamentos para o dia a dia dos treinos.' },
+  { icon: 'shield', titulo: 'Apoiando uniformes', texto: 'Vestindo os atletas com a identidade do Vôlei de Base Mannerriege.' },
+  { icon: 'briefcase', titulo: 'Apoiando financeiramente', texto: 'Contribuindo com recursos para estrutura, operação e o Festival de Abertura.' },
+  { icon: 'instagram', titulo: 'Divulgando o projeto', texto: 'Ajudando a espalhar a palavra entre famílias, escolas e outras empresas de Joinville.' },
+]
+---
+<Layout
+  title="Apoie o projeto — Mannerriege"
+  description="Seja parceiro do Vôlei de Base Mannerriege. Deixe seu nome, e-mail e telefone e a diretoria entra em contato para conversar sobre como apoiar."
+>
+  <NavBar />
+
+  <PageHero
+    eyebrow="Seja parceiro dessa história"
+    title="Apoie o projeto"
+    subtitle="Sua empresa, sua marca ou você podem fazer parte de algo maior que o esporte."
+    image={heroImg}
+  />
+
+  <main>
+    <!-- MANIFESTO -->
+    <section class="relative overflow-hidden bg-gold py-20">
+      <div class="hatch-mark pointer-events-none absolute -right-20 -top-20 h-72 w-72 rotate-12 text-ink/10"></div>
+      <div class="hatch-mark pointer-events-none absolute -bottom-24 -left-24 h-72 w-72 -rotate-12 text-ink/10"></div>
+      <div class="relative mx-auto max-w-3xl px-5 text-center sm:px-8">
+        <span class="reveal inline-flex items-center gap-2 rounded-full bg-ink/10 px-4 py-1.5 font-mono-label text-[11px] font-bold text-ink">
+          <Icon name="heart" class="h-3.5 w-3.5" /> Mais que esporte
+        </span>
+        <p class="reveal mt-6 font-display text-3xl font-extrabold leading-tight text-ink sm:text-4xl" style="transition-delay: 100ms">
+          É legado. É orgulho. É impacto.
+        </p>
+        <p class="reveal mx-auto mt-5 max-w-xl leading-relaxed text-ink/90" style="transition-delay: 180ms">
+          Joinville tem história. A Mannerriege tem tradição. Junte-se a nós para escrever o próximo
+          capítulo do voleibol joinvilense.
+        </p>
+      </div>
+    </section>
+
+    <!-- COMO APOIAR -->
+    <section class="bg-paper py-24">
+      <div class="mx-auto max-w-7xl px-5 sm:px-8">
+        <div class="reveal max-w-2xl">
+          <SectionTag text="Como você pode apoiar" />
+          <h2 class="mt-4 font-display text-4xl font-extrabold text-ink sm:text-5xl">
+            Várias formas de fazer parte
+          </h2>
+          <p class="mt-5 leading-relaxed text-ink-soft">
+            Não existe um único jeito de apoiar. Conte pra gente o que faz sentido para a sua empresa
+            ou para você — a conversa sobre os detalhes acontece diretamente com a diretoria.
+          </p>
+        </div>
+
+        <div class="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-5">
+          {formas.map((f, i) => (
+            <div class="reveal rounded-2xl border border-ink/8 bg-white p-6 shadow-card" style={`transition-delay: ${i * 70}ms`}>
+              <div class="flex h-10 w-10 items-center justify-center rounded-full bg-brand-soft text-brand-deep">
+                <Icon name={f.icon} class="h-4.5 w-4.5" />
+              </div>
+              <p class="mt-4 font-display text-base font-bold text-ink">{f.titulo}</p>
+              <p class="mt-1.5 text-xs leading-relaxed text-ink-soft">{f.texto}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <!-- FORMULARIO -->
+    <section class="bg-paper-dim py-24">
+      <div class="mx-auto max-w-2xl px-5 sm:px-8">
+        <div class="reveal text-center">
+          <SectionTag text="Fale com a diretoria" />
+          <h2 class="mt-4 font-display text-3xl font-extrabold text-ink sm:text-4xl">
+            Deixe seu contato
+          </h2>
+          <p class="mt-3 leading-relaxed text-ink-soft">
+            Preencha os dados abaixo e a diretoria do Mannerriege entra em contato para conversar sobre
+            como apoiar o projeto.
+          </p>
+        </div>
+
+        <form id="form-apoie" class="reveal mt-10 space-y-6" style="transition-delay: 100ms">
+          <div>
+            <label for="nome" class="font-mono-label text-[11px] font-bold text-ink-soft">Nome *</label>
+            <input
+              id="nome" name="nome" type="text" required
+              class="mt-2 w-full rounded-xl border border-ink/15 bg-white px-4 py-3 text-ink outline-none transition-colors focus:border-brand"
+              placeholder="Seu nome ou o nome da empresa"
+            />
+          </div>
+
+          <div class="grid gap-6 sm:grid-cols-2">
+            <div>
+              <label for="email" class="font-mono-label text-[11px] font-bold text-ink-soft">E-mail *</label>
+              <input
+                id="email" name="email" type="email" required
+                class="mt-2 w-full rounded-xl border border-ink/15 bg-white px-4 py-3 text-ink outline-none transition-colors focus:border-brand"
+                placeholder="email@exemplo.com"
+              />
+            </div>
+            <div>
+              <label for="telefone" class="font-mono-label text-[11px] font-bold text-ink-soft">Telefone com WhatsApp *</label>
+              <input
+                id="telefone" name="telefone" type="tel" required
+                class="mt-2 w-full rounded-xl border border-ink/15 bg-white px-4 py-3 text-ink outline-none transition-colors focus:border-brand"
+                placeholder="(47) 99999-9999"
+              />
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            class="js-submit-btn inline-flex w-full items-center justify-center gap-2 rounded-full bg-brand px-6 py-4 font-mono-label text-[11px] font-bold text-white transition-all hover:-translate-y-0.5 hover:bg-brand-deep disabled:opacity-60 sm:w-auto"
+          >
+            <span class="js-submit-label">Quero conversar</span>
+            <Icon name="arrow-right" class="h-3.5 w-3.5" />
+          </button>
+
+          <p class="js-form-error hidden text-sm font-medium text-brand-deep"></p>
+        </form>
+
+        <div id="form-sucesso" class="reveal hidden rounded-2xl bg-white p-10 text-center shadow-card">
+          <Icon name="heart" class="mx-auto h-10 w-10 text-brand" />
+          <h3 class="mt-4 font-display text-2xl font-bold text-ink">Recebemos seu contato!</h3>
+          <p class="mt-2 leading-relaxed text-ink-soft">
+            Obrigado por querer fazer parte dessa história. A diretoria do Mannerriege vai entrar em
+            contato pelo WhatsApp em breve.
+          </p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <SiteFooter />
+
+  <script define:vars={{ supabaseUrl: import.meta.env.PUBLIC_SUPABASE_URL, supabaseAnonKey: import.meta.env.PUBLIC_SUPABASE_ANON_KEY }}>
+    const form = document.getElementById('form-apoie')
+    const sucesso = document.getElementById('form-sucesso')
+
+    form?.addEventListener('submit', async (e) => {
+      e.preventDefault()
+      const btn = form.querySelector('.js-submit-btn')
+      const label = form.querySelector('.js-submit-label')
+      const errorEl = form.querySelector('.js-form-error')
+      errorEl.classList.add('hidden')
+
+      const data = Object.fromEntries(new FormData(form).entries())
+
+      btn.disabled = true
+      label.textContent = 'Enviando...'
+
+      try {
+        const res = await fetch(`${supabaseUrl}/functions/v1/interesse-apoio`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: supabaseAnonKey,
+            Authorization: `Bearer ${supabaseAnonKey}`,
+          },
+          body: JSON.stringify(data),
+        })
+
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}))
+          throw new Error(body.error || 'Não foi possível enviar agora. Tente novamente.')
+        }
+
+        form.classList.add('hidden')
+        sucesso?.classList.remove('hidden')
+      } catch (err) {
+        errorEl.textContent = err instanceof Error ? err.message : 'Erro inesperado. Tente novamente.'
+        errorEl.classList.remove('hidden')
+        btn.disabled = false
+        label.textContent = 'Quero conversar'
+      }
+    })
+  </script>
+</Layout>

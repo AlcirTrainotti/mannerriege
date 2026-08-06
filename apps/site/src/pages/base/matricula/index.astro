@@ -1,0 +1,253 @@
+---
+import Layout from '../../../layouts/Layout.astro'
+import NavBar from '../../../components/NavBar.astro'
+import SiteFooter from '../../../components/SiteFooter.astro'
+import PageHero from '../../../components/PageHero.astro'
+import SectionTag from '../../../components/SectionTag.astro'
+import Icon from '../../../components/Icon.astro'
+
+import heroImg from '../../../assets/img/projeto-2025-time.jpg'
+
+const posicoes = ['Levantador(a)', 'Ponteiro(a)', 'Central / Meio de rede', 'Oposto(a)', 'Líbero', 'Ainda não sei']
+const experiencias = ['Já jogou vôlei antes', 'Está iniciando agora']
+---
+<Layout
+  title="Quero matricular — Vôlei de Base Mannerriege"
+  description="Matricule seu filho ou filha no Vôlei de Base Mannerriege. Sub-13 e Sub-15, na Sociedade Ginástica de Joinville."
+>
+  <NavBar />
+
+  <PageHero
+    eyebrow="Vôlei de Base · Sub-13 e Sub-15"
+    title="Quero matricular"
+    subtitle="Preencha os dados do atleta abaixo. A coordenação do projeto entra em contato pelo WhatsApp para os próximos passos."
+    image={heroImg}
+  />
+
+  <main>
+    <section class="bg-paper py-24">
+      <div class="mx-auto max-w-3xl px-5 sm:px-8">
+        <div class="reveal">
+          <SectionTag text="Matrícula" />
+          <h2 class="mt-4 font-display text-3xl font-extrabold text-ink sm:text-4xl">
+            Dados para a matrícula
+          </h2>
+          <p class="mt-3 leading-relaxed text-ink-soft">
+            Todos os campos são necessários para a seleção e para o cadastro do atleta junto ao clube.
+          </p>
+        </div>
+
+        <form id="form-matricula" class="reveal mt-10 space-y-10" style="transition-delay: 100ms">
+          <!-- ATLETA -->
+          <div class="space-y-6">
+            <p class="font-mono-label text-[11px] font-bold text-brand-deep">Dados do atleta</p>
+
+            <div>
+              <label for="nome" class="font-mono-label text-[11px] font-bold text-ink-soft">Nome completo *</label>
+              <input
+                id="nome" name="nome" type="text" required
+                class="mt-2 w-full rounded-xl border border-ink/15 bg-white px-4 py-3 text-ink outline-none transition-colors focus:border-brand"
+                placeholder="Nome completo do atleta"
+              />
+            </div>
+
+            <div class="grid gap-6 sm:grid-cols-2">
+              <div>
+                <label for="dataNascimento" class="font-mono-label text-[11px] font-bold text-ink-soft">Data de nascimento *</label>
+                <input
+                  id="dataNascimento" name="dataNascimento" type="date" required
+                  class="mt-2 w-full rounded-xl border border-ink/15 bg-white px-4 py-3 text-ink outline-none transition-colors focus:border-brand"
+                />
+              </div>
+              <div>
+                <label for="documento" class="font-mono-label text-[11px] font-bold text-ink-soft">RG e/ou CPF *</label>
+                <input
+                  id="documento" name="documento" type="text" required
+                  class="mt-2 w-full rounded-xl border border-ink/15 bg-white px-4 py-3 text-ink outline-none transition-colors focus:border-brand"
+                  placeholder="RG e/ou CPF do atleta"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label for="endereco" class="font-mono-label text-[11px] font-bold text-ink-soft">Endereço residencial *</label>
+              <input
+                id="endereco" name="endereco" type="text" required
+                class="mt-2 w-full rounded-xl border border-ink/15 bg-white px-4 py-3 text-ink outline-none transition-colors focus:border-brand"
+                placeholder="Rua, número, bairro, cidade"
+              />
+            </div>
+
+            <div class="grid gap-6 sm:grid-cols-2">
+              <div>
+                <label for="experiencia" class="font-mono-label text-[11px] font-bold text-ink-soft">Já jogou vôlei antes ou está iniciando? *</label>
+                <select
+                  id="experiencia" name="experiencia" required
+                  class="mt-2 w-full rounded-xl border border-ink/15 bg-white px-4 py-3 text-ink outline-none transition-colors focus:border-brand"
+                >
+                  <option value="" disabled selected>Selecione</option>
+                  {experiencias.map((e) => <option value={e}>{e}</option>)}
+                </select>
+              </div>
+              <div>
+                <label for="posicao" class="font-mono-label text-[11px] font-bold text-ink-soft">Posição que joga ou gostaria de jogar *</label>
+                <select
+                  id="posicao" name="posicao" required
+                  class="mt-2 w-full rounded-xl border border-ink/15 bg-white px-4 py-3 text-ink outline-none transition-colors focus:border-brand"
+                >
+                  <option value="" disabled selected>Selecione</option>
+                  {posicoes.map((p) => <option value={p}>{p}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div class="sm:w-1/2 sm:pr-3">
+              <label for="altura" class="font-mono-label text-[11px] font-bold text-ink-soft">Altura (cm) *</label>
+              <input
+                id="altura" name="altura" type="number" min="100" max="220" required
+                class="mt-2 w-full rounded-xl border border-ink/15 bg-white px-4 py-3 text-ink outline-none transition-colors focus:border-brand"
+                placeholder="Ex: 155"
+              />
+            </div>
+          </div>
+
+          <!-- CONTATO -->
+          <div class="space-y-6 border-t border-ink/8 pt-8">
+            <p class="font-mono-label text-[11px] font-bold text-brand-deep">Contato</p>
+
+            <div class="grid gap-6 sm:grid-cols-2">
+              <div>
+                <label for="telefone" class="font-mono-label text-[11px] font-bold text-ink-soft">Telefone com WhatsApp *</label>
+                <input
+                  id="telefone" name="telefone" type="tel" required
+                  class="mt-2 w-full rounded-xl border border-ink/15 bg-white px-4 py-3 text-ink outline-none transition-colors focus:border-brand"
+                  placeholder="(47) 99999-9999"
+                />
+              </div>
+              <div>
+                <label for="email" class="font-mono-label text-[11px] font-bold text-ink-soft">E-mail *</label>
+                <input
+                  id="email" name="email" type="email" required
+                  class="mt-2 w-full rounded-xl border border-ink/15 bg-white px-4 py-3 text-ink outline-none transition-colors focus:border-brand"
+                  placeholder="email@exemplo.com"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- RESPONSAVEIS -->
+          <div class="space-y-6 border-t border-ink/8 pt-8">
+            <p class="font-mono-label text-[11px] font-bold text-brand-deep">Responsáveis</p>
+
+            <div class="grid gap-6 sm:grid-cols-2">
+              <div>
+                <label for="nomePai" class="font-mono-label text-[11px] font-bold text-ink-soft">Nome do pai *</label>
+                <input
+                  id="nomePai" name="nomePai" type="text" required
+                  class="mt-2 w-full rounded-xl border border-ink/15 bg-white px-4 py-3 text-ink outline-none transition-colors focus:border-brand"
+                  placeholder="Nome completo"
+                />
+              </div>
+              <div>
+                <label for="nomeMae" class="font-mono-label text-[11px] font-bold text-ink-soft">Nome da mãe *</label>
+                <input
+                  id="nomeMae" name="nomeMae" type="text" required
+                  class="mt-2 w-full rounded-xl border border-ink/15 bg-white px-4 py-3 text-ink outline-none transition-colors focus:border-brand"
+                  placeholder="Nome completo"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- ESCOLA -->
+          <div class="space-y-6 border-t border-ink/8 pt-8">
+            <p class="font-mono-label text-[11px] font-bold text-brand-deep">Escola</p>
+
+            <div class="grid gap-6 sm:grid-cols-2">
+              <div>
+                <label for="escola" class="font-mono-label text-[11px] font-bold text-ink-soft">Escola que estuda *</label>
+                <input
+                  id="escola" name="escola" type="text" required
+                  class="mt-2 w-full rounded-xl border border-ink/15 bg-white px-4 py-3 text-ink outline-none transition-colors focus:border-brand"
+                  placeholder="Nome da escola"
+                />
+              </div>
+              <div>
+                <label for="serie" class="font-mono-label text-[11px] font-bold text-ink-soft">Série *</label>
+                <input
+                  id="serie" name="serie" type="text" required
+                  class="mt-2 w-full rounded-xl border border-ink/15 bg-white px-4 py-3 text-ink outline-none transition-colors focus:border-brand"
+                  placeholder="Ex: 7º ano"
+                />
+              </div>
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            class="js-submit-btn inline-flex w-full items-center justify-center gap-2 rounded-full bg-brand px-6 py-4 font-mono-label text-[11px] font-bold text-white transition-all hover:-translate-y-0.5 hover:bg-brand-deep disabled:opacity-60 sm:w-auto"
+          >
+            <span class="js-submit-label">Enviar matrícula</span>
+            <Icon name="arrow-right" class="h-3.5 w-3.5" />
+          </button>
+
+          <p class="js-form-error hidden text-sm font-medium text-brand-deep"></p>
+        </form>
+
+        <div id="form-sucesso" class="reveal hidden rounded-2xl bg-white p-10 text-center shadow-card">
+          <Icon name="shield" class="mx-auto h-10 w-10 text-brand" />
+          <h3 class="mt-4 font-display text-2xl font-bold text-ink">Matrícula recebida!</h3>
+          <p class="mt-2 leading-relaxed text-ink-soft">
+            Obrigado por matricular no Vôlei de Base Mannerriege. A coordenação vai entrar em contato
+            pelo WhatsApp em breve com os próximos passos.
+          </p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <SiteFooter />
+
+  <script define:vars={{ supabaseUrl: import.meta.env.PUBLIC_SUPABASE_URL, supabaseAnonKey: import.meta.env.PUBLIC_SUPABASE_ANON_KEY }}>
+    const form = document.getElementById('form-matricula')
+    const sucesso = document.getElementById('form-sucesso')
+
+    form?.addEventListener('submit', async (e) => {
+      e.preventDefault()
+      const btn = form.querySelector('.js-submit-btn')
+      const label = form.querySelector('.js-submit-label')
+      const errorEl = form.querySelector('.js-form-error')
+      errorEl.classList.add('hidden')
+
+      const data = Object.fromEntries(new FormData(form).entries())
+
+      btn.disabled = true
+      label.textContent = 'Enviando...'
+
+      try {
+        const res = await fetch(`${supabaseUrl}/functions/v1/matricula-base`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: supabaseAnonKey,
+            Authorization: `Bearer ${supabaseAnonKey}`,
+          },
+          body: JSON.stringify(data),
+        })
+
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}))
+          throw new Error(body.error || 'Não foi possível enviar agora. Tente novamente.')
+        }
+
+        form.classList.add('hidden')
+        sucesso?.classList.remove('hidden')
+      } catch (err) {
+        errorEl.textContent = err instanceof Error ? err.message : 'Erro inesperado. Tente novamente.'
+        errorEl.classList.remove('hidden')
+        btn.disabled = false
+        label.textContent = 'Enviar matrícula'
+      }
+    })
+  </script>
+</Layout>
