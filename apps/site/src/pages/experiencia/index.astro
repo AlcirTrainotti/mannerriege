@@ -1,0 +1,354 @@
+---
+import Layout from '../../layouts/Layout.astro'
+import NavBar from '../../components/NavBar.astro'
+import SiteFooter from '../../components/SiteFooter.astro'
+import PageHero from '../../components/PageHero.astro'
+import SectionTag from '../../components/SectionTag.astro'
+import Icon from '../../components/Icon.astro'
+
+import heroImg from '../../assets/img/projeto-2025-time.jpg'
+
+const relacoes = ['Pai', 'Mãe', 'Responsável legal', 'Outro']
+const praticaOpcoes = ['Nunca praticou', 'Está começando', 'Pratica atualmente', 'Já praticou']
+const objetivoOpcoes = [
+  'Conhecer o voleibol',
+  'Aprimorar fundamentos',
+  'Melhorar condicionamento',
+  'Desenvolver confiança',
+  'Complementar outro projeto',
+  'Integrar o Mannerriege',
+  'Outro',
+]
+const origemOpcoes = [
+  'Instagram do Mannerriege',
+  'Indicação de amigo ou familiar',
+  'Escola',
+  'Outro projeto esportivo',
+  'Integrante do Mannerriege',
+  'Patrocinador ou empresa',
+  'Outro',
+]
+---
+<Layout
+  title="Inscrição — Experiência Mannerriege: A Nova Geração"
+  description="Uma tarde de desenvolvimento, voleibol e novos começos. 29 de agosto, na Sociedade Ginástica de Joinville. Inscreva-se na aula inaugural do Vôlei de Base Mannerriege."
+>
+  <NavBar />
+
+  <PageHero
+    eyebrow="Experiência Mannerriege · 29 de agosto"
+    title="A Nova Geração"
+    subtitle="Uma tarde de desenvolvimento, voleibol e novos começos."
+    image={heroImg}
+  />
+
+  <main>
+    <!-- APRESENTACAO -->
+    <section class="bg-paper py-20">
+      <div class="mx-auto max-w-3xl px-5 sm:px-8">
+        <div class="reveal">
+          <SectionTag text="Experiência Mannerriege — A Nova Geração" />
+          <p class="mt-5 leading-relaxed text-ink-soft">
+            No dia 29 de agosto, o Mannerriege abrirá suas portas para atletas que desejam conhecer o
+            projeto de base, desenvolver fundamentos e viver uma experiência guiada por técnica,
+            parceria, disciplina e amor pelo voleibol.
+          </p>
+          <p class="mt-4 leading-relaxed text-ink-soft">
+            O encontro é indicado tanto para quem está começando quanto para quem já pratica e deseja
+            complementar sua formação.
+          </p>
+        </div>
+
+        <div class="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          <div class="reveal rounded-2xl border border-ink/8 bg-white p-6 shadow-card">
+            <p class="font-mono-label text-[10px] font-bold text-ink-soft">Feminino</p>
+            <p class="mt-1 font-display text-xl font-extrabold text-ink">13h30 às 15h</p>
+            <p class="mt-0.5 text-xs text-ink-soft">20 vagas</p>
+          </div>
+          <div class="reveal rounded-2xl border border-ink/8 bg-white p-6 shadow-card" style="transition-delay: 70ms">
+            <p class="font-mono-label text-[10px] font-bold text-ink-soft">Masculino</p>
+            <p class="mt-1 font-display text-xl font-extrabold text-ink">17h00 às 18h30</p>
+            <p class="mt-0.5 text-xs text-ink-soft">20 vagas</p>
+          </div>
+          <div class="reveal rounded-2xl border border-ink/8 bg-white p-6 shadow-card" style="transition-delay: 140ms">
+            <p class="font-mono-label text-[10px] font-bold text-ink-soft">Local</p>
+            <p class="mt-1 font-display text-lg font-extrabold leading-tight text-ink">Sociedade Ginástica de Joinville</p>
+            <p class="mt-0.5 text-xs text-ink-soft">Rua dos Ginásticos, 96 — Centro</p>
+          </div>
+          <div class="reveal rounded-2xl border border-ink/8 bg-white p-6 shadow-card" style="transition-delay: 210ms">
+            <p class="font-mono-label text-[10px] font-bold text-ink-soft">Faixa etária · Participação</p>
+            <p class="mt-1 font-display text-xl font-extrabold text-ink">13 e 14 anos</p>
+            <p class="mt-0.5 text-xs text-ink-soft">Gratuita</p>
+          </div>
+        </div>
+
+        <p class="reveal mt-8 text-sm leading-relaxed text-ink-soft" style="transition-delay: 260ms">
+          O preenchimento deste formulário representa uma <strong class="text-ink">solicitação de
+          inscrição</strong>. A vaga estará confirmada após o envio da confirmação oficial pelo
+          WhatsApp.
+        </p>
+        <p class="reveal mt-4 font-display text-lg font-bold text-ink" style="transition-delay: 300ms">
+          A tradição inspira. A nova geração continua.
+        </p>
+      </div>
+    </section>
+
+    <!-- FORMULARIO -->
+    <section class="bg-paper-dim py-24">
+      <div class="mx-auto max-w-3xl px-5 sm:px-8">
+        <div class="reveal">
+          <SectionTag text="Inscrição" />
+          <h2 class="mt-4 font-display text-3xl font-extrabold text-ink sm:text-4xl">
+            Solicitar inscrição
+          </h2>
+        </div>
+
+        <form id="form-experiencia" class="reveal mt-10 space-y-10" style="transition-delay: 100ms">
+          <!-- DADOS DO RESPONSAVEL -->
+          <div class="space-y-6">
+            <p class="font-mono-label text-[11px] font-bold text-brand-deep">Dados do responsável</p>
+
+            <div>
+              <label for="responsavelNome" class="font-mono-label text-[11px] font-bold text-ink-soft">Nome completo do responsável *</label>
+              <input id="responsavelNome" name="responsavelNome" type="text" required
+                class="mt-2 w-full rounded-xl border border-ink/15 bg-white px-4 py-3 text-ink outline-none transition-colors focus:border-brand" />
+            </div>
+
+            <div class="grid gap-6 sm:grid-cols-2">
+              <div>
+                <label for="responsavelWhatsapp" class="font-mono-label text-[11px] font-bold text-ink-soft">WhatsApp do responsável *</label>
+                <input id="responsavelWhatsapp" name="responsavelWhatsapp" type="tel" required placeholder="(47) 99999-9999"
+                  class="mt-2 w-full rounded-xl border border-ink/15 bg-white px-4 py-3 text-ink outline-none transition-colors focus:border-brand" />
+              </div>
+              <div>
+                <label for="responsavelEmail" class="font-mono-label text-[11px] font-bold text-ink-soft">E-mail do responsável *</label>
+                <input id="responsavelEmail" name="responsavelEmail" type="email" required
+                  class="mt-2 w-full rounded-xl border border-ink/15 bg-white px-4 py-3 text-ink outline-none transition-colors focus:border-brand" />
+              </div>
+            </div>
+
+            <div>
+              <label for="responsavelRelacao" class="font-mono-label text-[11px] font-bold text-ink-soft">Relação com o atleta *</label>
+              <select id="responsavelRelacao" name="responsavelRelacao" required
+                class="mt-2 w-full rounded-xl border border-ink/15 bg-white px-4 py-3 text-ink outline-none transition-colors focus:border-brand">
+                <option value="" disabled selected>Selecione</option>
+                {relacoes.map((r) => <option value={r}>{r}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <!-- DADOS DO ALUNO -->
+          <div class="space-y-6 border-t border-ink/8 pt-8">
+            <p class="font-mono-label text-[11px] font-bold text-brand-deep">Dados do aluno</p>
+
+            <div>
+              <label for="atletaNome" class="font-mono-label text-[11px] font-bold text-ink-soft">Nome completo *</label>
+              <input id="atletaNome" name="atletaNome" type="text" required
+                class="mt-2 w-full rounded-xl border border-ink/15 bg-white px-4 py-3 text-ink outline-none transition-colors focus:border-brand" />
+            </div>
+
+            <div class="grid gap-6 sm:grid-cols-2">
+              <div>
+                <label for="atletaDataNascimento" class="font-mono-label text-[11px] font-bold text-ink-soft">Data de nascimento *</label>
+                <input id="atletaDataNascimento" name="atletaDataNascimento" type="date" required
+                  class="mt-2 w-full rounded-xl border border-ink/15 bg-white px-4 py-3 text-ink outline-none transition-colors focus:border-brand" />
+              </div>
+              <div>
+                <label for="turma" class="font-mono-label text-[11px] font-bold text-ink-soft">Gênero / turma *</label>
+                <select id="turma" name="turma" required
+                  class="mt-2 w-full rounded-xl border border-ink/15 bg-white px-4 py-3 text-ink outline-none transition-colors focus:border-brand">
+                  <option value="" disabled selected>Selecione</option>
+                  <option value="feminino">Feminino — 13h30 às 15h</option>
+                  <option value="masculino">Masculino — 17h00 às 18h30</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label for="praticaVolei" class="font-mono-label text-[11px] font-bold text-ink-soft">Já pratica voleibol? *</label>
+              <select id="praticaVolei" name="praticaVolei" required
+                class="mt-2 w-full rounded-xl border border-ink/15 bg-white px-4 py-3 text-ink outline-none transition-colors focus:border-brand">
+                <option value="" disabled selected>Selecione</option>
+                {praticaOpcoes.map((p) => <option value={p}>{p}</option>)}
+              </select>
+            </div>
+
+            <div>
+              <label for="praticaDetalhe" class="font-mono-label text-[11px] font-bold text-ink-soft">Se pratica, onde e há quanto tempo?</label>
+              <input id="praticaDetalhe" name="praticaDetalhe" type="text"
+                class="mt-2 w-full rounded-xl border border-ink/15 bg-white px-4 py-3 text-ink outline-none transition-colors focus:border-brand" />
+            </div>
+
+            <div>
+              <label for="objetivo" class="font-mono-label text-[11px] font-bold text-ink-soft">O que o aluno deseja desenvolver? *</label>
+              <select id="objetivo" name="objetivo" required
+                class="mt-2 w-full rounded-xl border border-ink/15 bg-white px-4 py-3 text-ink outline-none transition-colors focus:border-brand">
+                <option value="" disabled selected>Selecione</option>
+                {objetivoOpcoes.map((o) => <option value={o}>{o}</option>)}
+              </select>
+            </div>
+
+            <div>
+              <label for="objetivoOutro" class="font-mono-label text-[11px] font-bold text-ink-soft">Se "Outro", especifique</label>
+              <input id="objetivoOutro" name="objetivoOutro" type="text"
+                class="mt-2 w-full rounded-xl border border-ink/15 bg-white px-4 py-3 text-ink outline-none transition-colors focus:border-brand" />
+            </div>
+
+            <div>
+              <label for="condicaoSaude" class="font-mono-label text-[11px] font-bold text-ink-soft">
+                Há alguma condição de saúde, alergia, restrição ou informação que a equipe deva conhecer?
+              </label>
+              <textarea id="condicaoSaude" name="condicaoSaude" rows="3"
+                class="mt-2 w-full rounded-xl border border-ink/15 bg-white px-4 py-3 text-ink outline-none transition-colors focus:border-brand"></textarea>
+            </div>
+
+            <div>
+              <label for="contatoEmergencia" class="font-mono-label text-[11px] font-bold text-ink-soft">Contato de emergência *</label>
+              <input id="contatoEmergencia" name="contatoEmergencia" type="text" required placeholder="Nome e telefone"
+                class="mt-2 w-full rounded-xl border border-ink/15 bg-white px-4 py-3 text-ink outline-none transition-colors focus:border-brand" />
+            </div>
+          </div>
+
+          <!-- ORIGEM -->
+          <div class="space-y-6 border-t border-ink/8 pt-8">
+            <p class="font-mono-label text-[11px] font-bold text-brand-deep">Origem</p>
+
+            <div>
+              <label for="origem" class="font-mono-label text-[11px] font-bold text-ink-soft">Como conheceu a Experiência? *</label>
+              <select id="origem" name="origem" required
+                class="mt-2 w-full rounded-xl border border-ink/15 bg-white px-4 py-3 text-ink outline-none transition-colors focus:border-brand">
+                <option value="" disabled selected>Selecione</option>
+                {origemOpcoes.map((o) => <option value={o}>{o}</option>)}
+              </select>
+            </div>
+
+            <div>
+              <label for="origemOutro" class="font-mono-label text-[11px] font-bold text-ink-soft">Se "Outro", especifique</label>
+              <input id="origemOutro" name="origemOutro" type="text"
+                class="mt-2 w-full rounded-xl border border-ink/15 bg-white px-4 py-3 text-ink outline-none transition-colors focus:border-brand" />
+            </div>
+          </div>
+
+          <!-- AUTORIZACOES -->
+          <div class="space-y-5 border-t border-ink/8 pt-8">
+            <p class="font-mono-label text-[11px] font-bold text-brand-deep">Autorizações</p>
+
+            <label class="flex items-start gap-3 text-sm leading-relaxed text-ink-soft">
+              <input type="checkbox" id="declaracaoCiencia" name="declaracaoCiencia" required class="mt-1 h-4 w-4 flex-shrink-0" />
+              <span>
+                Declaro que as informações são verdadeiras e que o participante possui condições para
+                realizar atividade física, comprometendo-me a informar previamente qualquer restrição
+                relevante. *
+              </span>
+            </label>
+
+            <label class="flex items-start gap-3 text-sm leading-relaxed text-ink-soft">
+              <input type="checkbox" id="autorizacaoDados" name="autorizacaoDados" required class="mt-1 h-4 w-4 flex-shrink-0" />
+              <span>
+                Autorizo o uso dos dados fornecidos exclusivamente para organização do evento, contato
+                com o responsável e apresentação do projeto Mannerriege Vôlei de Base. *
+              </span>
+            </label>
+
+            <div>
+              <p class="text-sm leading-relaxed text-ink-soft">
+                Autorizo a captação e utilização de imagens do participante nos canais institucionais do
+                Mannerriege. *
+              </p>
+              <p class="mt-1 text-xs text-ink-soft/70">A recusa da autorização de imagem não impede a participação.</p>
+              <div class="mt-3 flex gap-6">
+                <label class="flex items-center gap-2 text-sm text-ink">
+                  <input type="radio" name="autorizacaoImagem" value="autorizo" required class="h-4 w-4" /> Autorizo
+                </label>
+                <label class="flex items-center gap-2 text-sm text-ink">
+                  <input type="radio" name="autorizacaoImagem" value="nao_autorizo" required class="h-4 w-4" /> Não autorizo
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <button type="submit"
+            class="js-submit-btn inline-flex w-full items-center justify-center gap-2 rounded-full bg-brand px-6 py-4 font-mono-label text-[11px] font-bold text-white transition-all hover:-translate-y-0.5 hover:bg-brand-deep disabled:opacity-60 sm:w-auto">
+            <span class="js-submit-label">Enviar inscrição</span>
+            <Icon name="arrow-right" class="h-3.5 w-3.5" />
+          </button>
+
+          <p class="js-form-error hidden text-sm font-medium text-brand-deep"></p>
+        </form>
+
+        <div id="form-sucesso" class="reveal hidden rounded-2xl bg-white p-10 text-center shadow-card">
+          <Icon name="volleyball" class="mx-auto h-10 w-10 text-brand" />
+          <h3 id="sucesso-titulo" class="mt-4 font-display text-2xl font-bold text-ink">Inscrição recebida! 🏐</h3>
+          <p id="sucesso-texto" class="mt-2 leading-relaxed text-ink-soft">
+            A vaga ainda será validada pela equipe do Mannerriege. Você receberá uma mensagem no
+            WhatsApp informado no formulário.
+          </p>
+          <p class="mt-4 text-sm leading-relaxed text-ink-soft">
+            Salve nosso contato e acompanhe o Instagram <strong>@mannerriege</strong> para receber as
+            novidades da Experiência A Nova Geração.
+          </p>
+          <p class="mt-4 text-xs text-ink-soft/70">
+            Importante: a inscrição estará confirmada somente após o recebimento da mensagem oficial da
+            organização.
+          </p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <SiteFooter />
+
+  <script define:vars={{ supabaseUrl: import.meta.env.PUBLIC_SUPABASE_URL, supabaseAnonKey: import.meta.env.PUBLIC_SUPABASE_ANON_KEY }}>
+    const form = document.getElementById('form-experiencia')
+    const sucesso = document.getElementById('form-sucesso')
+    const sucessoTitulo = document.getElementById('sucesso-titulo')
+    const sucessoTexto = document.getElementById('sucesso-texto')
+
+    form?.addEventListener('submit', async (e) => {
+      e.preventDefault()
+      const btn = form.querySelector('.js-submit-btn')
+      const label = form.querySelector('.js-submit-label')
+      const errorEl = form.querySelector('.js-form-error')
+      errorEl.classList.add('hidden')
+
+      const formData = new FormData(form)
+      const data = Object.fromEntries(formData.entries())
+      data.declaracaoCiencia = form.declaracaoCiencia.checked
+      data.autorizacaoDados = form.autorizacaoDados.checked
+
+      btn.disabled = true
+      label.textContent = 'Enviando...'
+
+      try {
+        const res = await fetch(`${supabaseUrl}/functions/v1/inscricao-experiencia`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: supabaseAnonKey,
+            Authorization: `Bearer ${supabaseAnonKey}`,
+          },
+          body: JSON.stringify(data),
+        })
+
+        const resBody = await res.json().catch(() => ({}))
+
+        if (!res.ok) {
+          throw new Error(resBody.error || 'Não foi possível enviar agora. Tente novamente.')
+        }
+
+        if (resBody.status === 'lista_espera') {
+          sucessoTitulo.textContent = 'Você está na lista de espera'
+          sucessoTexto.textContent = 'As 20 vagas dessa turma já estão preenchidas. Se uma vaga abrir, a equipe do Mannerriege entra em contato pelo WhatsApp informado no formulário.'
+        }
+
+        form.classList.add('hidden')
+        sucesso?.classList.remove('hidden')
+      } catch (err) {
+        errorEl.textContent = err instanceof Error ? err.message : 'Erro inesperado. Tente novamente.'
+        errorEl.classList.remove('hidden')
+        btn.disabled = false
+        label.textContent = 'Enviar inscrição'
+      }
+    })
+  </script>
+</Layout>
