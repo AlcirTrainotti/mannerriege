@@ -66,7 +66,7 @@ Deno.serve(async (req: Request) => {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      from: "Mannerriege <onboarding@resend.dev>",
+      from: "Mannerriege <naoresponder@mannerriege.com.br>",
       to: DESTINATARIOS,
       subject: `Nova mensagem de contato: ${nome}`,
       html,

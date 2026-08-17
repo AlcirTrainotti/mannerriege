@@ -25,10 +25,12 @@ export function statusLabel(value) {
   return statusOptions.find((s) => s.value === value)?.label ?? value
 }
 
-// Quando um associado e cadastrado sem e-mail, geramos um a partir do
-// telefone so para o login funcionar. Essa funcao esconde esse e-mail
-// "de mentira" da tela, mostrando "sem e-mail cadastrado" no lugar.
+// Quando um associado e cadastrado sem e-mail, geramos um UUID so
+// para o login funcionar. Essa funcao esconde esse e-mail interno
+// da tela, mostrando null no lugar (UI exibe "sem e-mail cadastrado").
 export function emailExibicao(email) {
-  if (!email || email.endsWith('@sememail.mannerriege.com.br')) return null
+  if (!email) return null
+  if (email.endsWith('@sem-email.mannerriege.com.br')) return null
+  if (email.endsWith('@sememail.mannerriege.com.br')) return null // legado
   return email
 }

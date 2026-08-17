@@ -1,6 +1,5 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { createClient } from '@supabase/supabase-js'
 import { supabase } from '../../lib/supabase.js'
 import { calcularCategoria } from '../../lib/categoria.js'
 import { modalidadeOptions, roleOptions, statusOptions, emailExibicao } from '../../data/portal.js'
@@ -122,31 +121,30 @@ async function adicionarAssociado() {
   }
   adicionando.value = true
 
-  // Cria o usuario em um cliente isolado para nao deslogar o admin
-  const url = import.meta.env.VITE_SUPABASE_URL
-  const key = import.meta.env.VITE_SUPABASE_ANON_KEY
-  const clienteTemp = createClient(url, key, { auth: { storageKey: 'signup-temp' } })
-
-  // E-mail e opcional - se nao for informado, geramos um a partir do
-  // telefone so para o login funcionar (o Supabase exige um e-mail
-  // unico). Na tela, isso aparece como "sem e-mail".
-  const telefoneDigitos = novoTelefone.value.replace(/\D/g, '')
-  const emailParaLogin = novoEmail.value.trim() || `${telefoneDigitos}@sememail.mannerriege.com.br`
-
-  const { data, error: signupError } = await clienteTemp.auth.signUp({
-    email: emailParaLogin,
-    password: novaSenha.value,
-    options: { data: { nome: novoNome.value.trim() } },
+  // Usa a Edge Function administrativa para criar o usuário.
+  // Assim o e-mail é genuinamente opcional — não precisamos inventar
+  // nada, e a service role key fica segura no servidor.
+  const { data: fnData, error: fnError } = await supabase.functions.invoke('criar-associado', {
+    body: {
+      nome: novoNome.value.trim(),
+      telefone: novoTelefone.value.trim(),
+      senha: novaSenha.value,
+      email: novoEmail.value.trim() || null,
+    },
   })
 
-  if (signupError || !data.user) {
+  if (fnError || fnData?.error) {
     adicionando.value = false
-    addError.value = signupError?.message ?? 'Erro ao criar usuário.'
+    addError.value = fnData?.error ?? fnError?.message ?? 'Erro ao criar usuário.'
     return
   }
 
-  // Garante que a sessao temporaria e descartada
-  await clienteTemp.auth.signOut()
+  const userId = fnData?.userId
+  if (!userId) {
+    adicionando.value = false
+    addError.value = 'Resposta inesperada do servidor.'
+    return
+  }
 
   // Preenche dados extras no profile criado pelo trigger
   const camposExtras = {}
@@ -160,7 +158,7 @@ async function adicionarAssociado() {
   if (Object.keys(camposExtras).length) {
     // Aguarda o trigger criar o profile
     await new Promise((r) => setTimeout(r, 800))
-    await supabase.from('profiles').update(camposExtras).eq('id', data.user.id)
+    await supabase.from('profiles').update(camposExtras).eq('id', userId)
   }
 
   adicionando.value = false

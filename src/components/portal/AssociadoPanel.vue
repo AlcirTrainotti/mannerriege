@@ -16,6 +16,7 @@ const minhasMensalidades = ref([])
 const loadingMensalidades = ref(true)
 
 async function carregarMinhasMensalidades() {
+  if (!profile.value?.id) return
   loadingMensalidades.value = true
   const { data } = await supabase
     .from('mensalidades')
@@ -201,7 +202,7 @@ const loadingConselho = ref(true)
 const aprovandoCompetencia = ref(null)
 
 async function carregarConselhoFiscal() {
-  if (!profile.value?.conselheiro_fiscal) {
+  if (!profile.value?.id || !profile.value?.conselheiro_fiscal) {
     loadingConselho.value = false
     return
   }

@@ -165,12 +165,16 @@ Deno.serve(async (req: Request) => {
       method: "POST",
       headers: { Authorization: `Bearer ${resendApiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        from: "Mannerriege <onboarding@resend.dev>",
+        from: "Mannerriege <naoresponder@mannerriege.com.br>",
         to: [body.responsavelEmail],
         subject: vagaDisponivel ? "Inscrição recebida — Experiência Mannerriege" : "Você está na lista de espera — Experiência Mannerriege",
         html: htmlResponsavel,
       }),
-    }).catch((err) => console.error("Falha ao enviar e-mail ao responsável:", err))
+    })
+      .then(async (res) => {
+        if (!res.ok) console.error("Resend recusou o e-mail ao responsável:", res.status, await res.text())
+      })
+      .catch((err) => console.error("Falha ao enviar e-mail ao responsável:", err))
 
     const linha = (label: string, valor: string) =>
       `<p><strong>${label}:</strong> ${escapeHtml(valor)}</p>`
@@ -212,12 +216,16 @@ Deno.serve(async (req: Request) => {
       method: "POST",
       headers: { Authorization: `Bearer ${resendApiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        from: "Mannerriege <onboarding@resend.dev>",
+        from: "Mannerriege <naoresponder@mannerriege.com.br>",
         to: DESTINATARIOS_DIRETORIA,
         subject: `Nova inscrição Experiência (${turmaLabel}): ${body.atletaNome}${status === "lista_espera" ? " [LISTA DE ESPERA]" : ""}`,
         html: htmlDiretoria,
       }),
-    }).catch((err) => console.error("Falha ao enviar e-mail à diretoria:", err))
+    })
+      .then(async (res) => {
+        if (!res.ok) console.error("Resend recusou o e-mail à diretoria:", res.status, await res.text())
+      })
+      .catch((err) => console.error("Falha ao enviar e-mail à diretoria:", err))
   } else {
     console.error("RESEND_API_KEY não configurada — inscrição gravada, mas nenhum e-mail foi enviado")
   }

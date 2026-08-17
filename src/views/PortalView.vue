@@ -9,6 +9,10 @@ const AssociadoPanel = defineAsyncComponent(() => import('../components/portal/A
 const AdminPanel = defineAsyncComponent(() => import('../components/portal/AdminPanel.vue'))
 const EsportivoPanel = defineAsyncComponent(() => import('../components/portal/EsportivoPanel.vue'))
 const FinanceiroPanel = defineAsyncComponent(() => import('../components/portal/FinanceiroPanel.vue'))
+const BaseProfessorPanel = defineAsyncComponent(() => import('../components/portal/BaseProfessorPanel.vue'))
+const BaseCoordenadorPanel = defineAsyncComponent(() => import('../components/portal/BaseCoordenadorPanel.vue'))
+const BaseResponsavelPanel = defineAsyncComponent(() => import('../components/portal/BaseResponsavelPanel.vue'))
+const BaseAtletaPanel = defineAsyncComponent(() => import('../components/portal/BaseAtletaPanel.vue'))
 
 const { user, profile, loading, profileError } = useAuth()
 </script>
@@ -28,6 +32,10 @@ const { user, profile, loading, profileError } = useAuth()
       <AdminPanel v-else-if="profile?.role === 'admin'" />
       <EsportivoPanel v-else-if="profile?.role === 'coordenador_esportivo'" />
       <FinanceiroPanel v-else-if="profile?.role === 'tesoureiro'" />
+      <BaseProfessorPanel v-else-if="profile?.role === 'professor_base'" />
+      <BaseCoordenadorPanel v-else-if="profile?.role === 'coordenador_base'" />
+      <BaseResponsavelPanel v-else-if="profile?.role === 'responsavel_base'" />
+      <BaseAtletaPanel v-else-if="profile?.role === 'atleta_base'" />
       <AssociadoPanel v-else />
     </div>
   </section>
