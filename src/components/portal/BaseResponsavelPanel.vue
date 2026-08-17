@@ -10,6 +10,7 @@ import { formatarCompetencia } from '../../data/financeiro.js'
 import {
   statusAtletaLabel, statusAtletaClasses, idadeAtual, nomeCategoria,
   mensalidadeBaseStatusLabel, mensalidadeBaseStatusClasses,
+  posicaoLabel, tipoEventoLabel,
 } from '../../data/base.js'
 
 const { profile, logout } = useAuth()
@@ -32,11 +33,12 @@ async function carregarMeusAtletas() {
     return
   }
 
-  const [{ data: atletas }, { data: categorias }, { data: planosVigentes }, { data: mensalidades }] = await Promise.all([
+  const [{ data: atletas }, { data: categorias }, { data: planosVigentes }, { data: mensalidades }, { data: eventosParticipados }] = await Promise.all([
     supabase.from('atletas_base').select('*').in('id', atletaIds),
     supabase.from('categorias_base').select('*'),
     supabase.from('atleta_plano').select('atleta_id, plano:planos_base(*)').in('atleta_id', atletaIds).is('data_fim', null),
     supabase.from('mensalidades_base').select('*').in('atleta_id', atletaIds).order('competencia', { ascending: false }),
+    supabase.from('evento_participantes_base').select('*, evento:eventos_base(*)').in('atleta_id', atletaIds).order('criado_em', { ascending: false }),
   ])
 
   meusAtletas.value = (atletas ?? []).map((a) => ({
@@ -44,6 +46,7 @@ async function carregarMeusAtletas() {
     categoria: (categorias ?? []).find((c) => c.id === a.categoria_id) ?? null,
     plano: (planosVigentes ?? []).find((p) => p.atleta_id === a.id)?.plano ?? null,
     ultimaMensalidade: (mensalidades ?? []).find((m) => m.atleta_id === a.id) ?? null,
+    historicoEventos: (eventosParticipados ?? []).filter((p) => p.atleta_id === a.id && p.evento).slice(0, 8),
     editando: false,
     formEdicao: { nome: a.nome, escola: a.escola ?? '', data_nascimento: a.data_nascimento },
     criandoLogin: false,
@@ -156,6 +159,7 @@ onMounted(carregarMeusAtletas)
               <h2 class="font-display text-xl font-bold text-ink">{{ atleta.nome }}</h2>
               <p class="mt-0.5 text-xs text-ink-soft">
                 {{ nomeCategoria(atleta.categoria) }} · {{ idadeAtual(atleta.data_nascimento) }} anos
+                <span v-if="atleta.posicao"> · {{ posicaoLabel(atleta.posicao) }}</span>
               </p>
             </div>
             <span :class="['flex-shrink-0 rounded-full px-3 py-1 text-xs font-semibold', statusAtletaClasses(atleta.status)]">
@@ -240,6 +244,23 @@ onMounted(carregarMeusAtletas)
                 >{{ atleta.criandoLogin ? 'Criando...' : 'Criar acesso' }}</button>
               </div>
               <p v-if="atleta.erroLogin" class="mt-2 text-xs text-brand-deep">{{ atleta.erroLogin }}</p>
+            </div>
+          </div>
+
+          <!-- Histórico de eventos -->
+          <div v-if="atleta.historicoEventos.length" class="mt-4 rounded-xl bg-paper-dim p-4">
+            <p class="font-mono-label text-[9px] font-bold text-ink-soft">HISTÓRICO RECENTE</p>
+            <div class="mt-2 divide-y divide-ink/8">
+              <div v-for="p in atleta.historicoEventos" :key="p.id" class="flex items-center justify-between gap-2 py-2 text-xs">
+                <div>
+                  <p class="text-ink">{{ p.evento.titulo }}</p>
+                  <p class="text-ink-soft">{{ tipoEventoLabel(p.evento.tipo) }} · {{ formatarDataCurta(p.evento.data) }}</p>
+                </div>
+                <div class="text-right">
+                  <p v-if="p.presente !== null" :class="p.presente ? 'text-[#27500A]' : 'text-brand-deep'">{{ p.presente ? 'presente' : 'ausente' }}</p>
+                  <p v-if="p.desempenho_nota !== null" class="text-ink-soft">nota {{ p.desempenho_nota }}</p>
+                </div>
+              </div>
             </div>
           </div>
 

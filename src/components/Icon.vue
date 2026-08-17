@@ -100,6 +100,21 @@ defineProps({
       <circle cx="12" cy="10" r="2.3" />
     </template>
 
+    <template v-else-if="name === 'camera'">
+      <path d="M4 8.5h3l1.4-2h7.2l1.4 2h3v10.5a1 1 0 01-1 1H5a1 1 0 01-1-1V8.5z" />
+      <circle cx="12" cy="13.5" r="3.4" />
+    </template>
+
+    <template v-else-if="name === 'edit'">
+      <path d="M4 20l.9-4.2L15.6 5.1a1.5 1.5 0 012.1 0l1.2 1.2a1.5 1.5 0 010 2.1L8.2 19.1 4 20z" />
+      <path d="M14 7l3 3" />
+    </template>
+
+    <template v-else-if="name === 'trash'">
+      <path d="M5 7h14M9.5 7V5a1.5 1.5 0 011.5-1.5h2A1.5 1.5 0 0114.5 5v2M7 7l1 12.5A1.5 1.5 0 009.5 21h5a1.5 1.5 0 001.5-1.5L17 7" />
+      <path d="M10 11v6M14 11v6" />
+    </template>
+
     <template v-else-if="name === 'lock'">
       <rect x="5" y="11" width="14" height="9.5" rx="2" />
       <path d="M8 11V7.5a4 4 0 018 0V11" />

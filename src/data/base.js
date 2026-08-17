@@ -56,3 +56,50 @@ export function nomeCategoria(categoria) {
   if (!categoria) return '—'
   return `${categoria.nome} · ${sexoLabel(categoria.sexo)}`
 }
+
+// Sugere a categoria certa a partir da data de nascimento + sexo do
+// atleta, usando as datas de corte cadastradas em cada categoria.
+// Compara strings ISO (YYYY-MM-DD), que ordenam corretamente sem
+// precisar converter pra Date.
+export function categoriaPorNascimento(dataNascimento, sexo, categorias) {
+  if (!dataNascimento || !sexo) return null
+  const encontrada = (categorias ?? []).find((c) => (
+    c.ativo !== false &&
+    c.sexo === sexo &&
+    c.data_corte_min && c.data_corte_max &&
+    dataNascimento >= c.data_corte_min && dataNascimento <= c.data_corte_max
+  ))
+  return encontrada?.id ?? null
+}
+
+export const posicaoOptions = [
+  { value: 'ponteiro', label: 'Ponteiro(a)' },
+  { value: 'libero', label: 'Líbero' },
+  { value: 'levantador', label: 'Levantador(a)' },
+  { value: 'meio', label: 'Meio de rede' },
+  { value: 'oposto', label: 'Oposto(a)' },
+  { value: 'tecnico', label: 'Técnico(a)' },
+  { value: 'outro', label: 'Outro' },
+]
+
+export function posicaoLabel(v) {
+  return posicaoOptions.find((p) => p.value === v)?.label ?? '—'
+}
+
+export const tipoEventoOptions = [
+  { value: 'treino', label: 'Treino' },
+  { value: 'jogo', label: 'Jogo' },
+  { value: 'campeonato', label: 'Campeonato' },
+  { value: 'festival', label: 'Festival' },
+  { value: 'reuniao', label: 'Reunião' },
+  { value: 'outro', label: 'Outro' },
+]
+
+export function tipoEventoLabel(v) {
+  return tipoEventoOptions.find((t) => t.value === v)?.label ?? v
+}
+
+export function formatarHora(hhmmss) {
+  if (!hhmmss) return ''
+  return hhmmss.slice(0, 5)
+}

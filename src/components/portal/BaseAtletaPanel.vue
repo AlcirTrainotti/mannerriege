@@ -9,6 +9,7 @@ import { formatarCompetencia } from '../../data/financeiro.js'
 import {
   statusAtletaLabel, statusAtletaClasses, idadeAtual, nomeCategoria,
   mensalidadeBaseStatusLabel, mensalidadeBaseStatusClasses,
+  posicaoLabel, tipoEventoLabel,
 } from '../../data/base.js'
 
 // Painel só de leitura — nenhum botão de edição em nenhuma tela.
@@ -19,6 +20,7 @@ const { profile, logout } = useAuth()
 const carregando = ref(true)
 const meuCadastro = ref(null)
 const minhasMensalidades = ref([])
+const meuHistoricoEventos = ref([])
 
 async function carregar() {
   carregando.value = true
@@ -32,12 +34,14 @@ async function carregar() {
   meuCadastro.value = atleta
 
   if (atleta) {
-    const [{ data: planoVigente }, { data: mensalidades }] = await Promise.all([
+    const [{ data: planoVigente }, { data: mensalidades }, { data: eventosParticipados }] = await Promise.all([
       supabase.from('atleta_plano').select('plano:planos_base(*)').eq('atleta_id', atleta.id).is('data_fim', null).maybeSingle(),
       supabase.from('mensalidades_base').select('*').eq('atleta_id', atleta.id).order('competencia', { ascending: false }).limit(6),
+      supabase.from('evento_participantes_base').select('*, evento:eventos_base(*)').eq('atleta_id', atleta.id).order('criado_em', { ascending: false }).limit(8),
     ])
     meuCadastro.value.plano = planoVigente?.plano ?? null
     minhasMensalidades.value = mensalidades ?? []
+    meuHistoricoEventos.value = (eventosParticipados ?? []).filter((p) => p.evento)
   }
 
   carregando.value = false
@@ -67,7 +71,10 @@ onMounted(carregar)
       <div v-else class="mt-8 space-y-6">
         <div class="rounded-2xl bg-white p-7 shadow-card">
           <h2 class="font-display text-2xl font-bold text-ink">{{ meuCadastro.nome }}</h2>
-          <p class="mt-1 text-sm text-ink-soft">{{ nomeCategoria(meuCadastro.categoria) }} · {{ idadeAtual(meuCadastro.data_nascimento) }} anos</p>
+          <p class="mt-1 text-sm text-ink-soft">
+            {{ nomeCategoria(meuCadastro.categoria) }} · {{ idadeAtual(meuCadastro.data_nascimento) }} anos
+            <span v-if="meuCadastro.posicao"> · {{ posicaoLabel(meuCadastro.posicao) }}</span>
+          </p>
           <span :class="['mt-3 inline-block rounded-full px-3 py-1 text-xs font-semibold', statusAtletaClasses(meuCadastro.status)]">
             {{ statusAtletaLabel(meuCadastro.status) }}
           </span>
@@ -94,9 +101,25 @@ onMounted(carregar)
           </div>
         </div>
 
+        <div v-if="meuHistoricoEventos.length" class="rounded-2xl bg-white p-6 shadow-card">
+          <p class="font-mono-label text-[9px] font-bold text-ink-soft">MEU HISTÓRICO RECENTE</p>
+          <div class="mt-3 divide-y divide-ink/8">
+            <div v-for="p in meuHistoricoEventos" :key="p.id" class="flex items-center justify-between gap-2 py-2 text-sm">
+              <div>
+                <p class="text-ink">{{ p.evento.titulo }}</p>
+                <p class="text-xs text-ink-soft">{{ tipoEventoLabel(p.evento.tipo) }} · {{ formatarData(p.evento.data) }}</p>
+              </div>
+              <div class="text-right text-xs">
+                <p v-if="p.presente !== null" :class="p.presente ? 'text-[#27500A]' : 'text-brand-deep'">{{ p.presente ? 'presente' : 'ausente' }}</p>
+                <p v-if="p.desempenho_nota !== null" class="text-ink-soft">nota {{ p.desempenho_nota }}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="rounded-2xl border border-dashed border-ink/15 p-6 text-center">
           <Icon name="calendar" class="mx-auto h-6 w-6 text-ink-soft/50" />
-          <p class="mt-2 text-sm text-ink-soft">Calendário de treinos e avaliações por critério chegam nas próximas fases do módulo.</p>
+          <p class="mt-2 text-sm text-ink-soft">Avaliação por valência (física, técnica, comportamental) detalhada chega numa próxima fase do módulo.</p>
         </div>
       </div>
 
