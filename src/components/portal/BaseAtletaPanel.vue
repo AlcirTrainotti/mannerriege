@@ -3,24 +3,29 @@ import { ref, onMounted } from 'vue'
 import { supabase } from '../../lib/supabase.js'
 import { useAuth } from '../../lib/useAuth.js'
 import Icon from '../Icon.vue'
+import AvatarUpload from './AvatarUpload.vue'
+import AtletaEvolucaoDashboard from './AtletaEvolucaoDashboard.vue'
 import { formatarData } from '../../lib/categoria.js'
-import { brl } from '../../data/campeonatos.js'
+import { brl, formatarDataCurta } from '../../data/campeonatos.js'
 import { formatarCompetencia } from '../../data/financeiro.js'
 import {
   statusAtletaLabel, statusAtletaClasses, idadeAtual, nomeCategoria,
   mensalidadeBaseStatusLabel, mensalidadeBaseStatusClasses,
-  posicaoLabel, tipoEventoLabel,
+  posicaoLabel, tipoEventoLabel, tipoAvaliacaoLabel, statusFinanceiroBaseClasses,
+  tempoNoProjeto,
 } from '../../data/base.js'
 
-// Painel só de leitura — nenhum botão de edição em nenhuma tela.
-// Quem gerencia o cadastro é o responsável (BaseResponsavelPanel).
+// Painel do próprio atleta — espelha o que o responsável vê no dele,
+// mas é só leitura em quase tudo. As únicas exceções (permitidas pela
+// trigger atletas_base_bloqueia_campos_staff, migration_097) são:
+// foto (avatar_url), nome e escola. Categoria, status, data de
+// nascimento, posição, observações e time continuam exclusivos do
+// responsável/equipe da base.
 
 const { profile, logout } = useAuth()
 
 const carregando = ref(true)
 const meuCadastro = ref(null)
-const minhasMensalidades = ref([])
-const meuHistoricoEventos = ref([])
 
 async function carregar() {
   carregando.value = true
@@ -31,23 +36,107 @@ async function carregar() {
     .eq('profile_id', profile.value.id)
     .maybeSingle()
 
-  meuCadastro.value = atleta
-
-  if (atleta) {
-    const [{ data: planoVigente }, { data: mensalidades }, { data: eventosParticipados }] = await Promise.all([
-      supabase.from('atleta_plano').select('plano:planos_base(*)').eq('atleta_id', atleta.id).is('data_fim', null).maybeSingle(),
-      supabase.from('mensalidades_base').select('*').eq('atleta_id', atleta.id).order('competencia', { ascending: false }).limit(6),
-      supabase.from('evento_participantes_base').select('*, evento:eventos_base(*)').eq('atleta_id', atleta.id).order('criado_em', { ascending: false }).limit(8),
-    ])
-    meuCadastro.value.plano = planoVigente?.plano ?? null
-    minhasMensalidades.value = mensalidades ?? []
-    meuHistoricoEventos.value = (eventosParticipados ?? []).filter((p) => p.evento)
+  if (!atleta) {
+    meuCadastro.value = null
+    carregando.value = false
+    return
   }
+
+  const [{ data: planoVigente }, { data: mensalidades }, { data: eventosParticipados }, { data: avaliacoes }, { data: matricula }] = await Promise.all([
+    supabase.from('atleta_plano').select('atleta_id, data_inicio, plano:planos_base(*)').eq('atleta_id', atleta.id).is('data_fim', null).maybeSingle(),
+    supabase.from('mensalidades_base').select('*').eq('atleta_id', atleta.id).order('competencia', { ascending: false }),
+    supabase.from('evento_participantes_base').select('*, evento:eventos_base(*)').eq('atleta_id', atleta.id).order('criado_em', { ascending: false }),
+    supabase.from('avaliacoes_atleta_base').select('*').eq('atleta_id', atleta.id).order('data', { ascending: false }),
+    supabase.from('matriculas_base').select('*').eq('atleta_id', atleta.id).maybeSingle(),
+  ])
+
+  const participacoes = (eventosParticipados ?? []).filter((p) => p.evento)
+  const eventoIds = [...new Set(participacoes.map((p) => p.evento_id))]
+  const { data: midias } = eventoIds.length
+    ? await supabase.from('evento_midias_base').select('*').in('evento_id', eventoIds).order('criado_em', { ascending: false })
+    : { data: [] }
+
+  meuCadastro.value = {
+    ...atleta,
+    planoVigente: planoVigente ?? null,
+    mensalidades: mensalidades ?? [],
+    matricula: matricula ?? null,
+    participacoesTotal: participacoes,
+    historicoEventos: participacoes.slice(0, 8).map((p) => ({ ...p, expandido: false })),
+    avaliacoes: avaliacoes ?? [],
+    fotosEventos: midias ?? [],
+  }
+
+  formEdicao.value = { nome: atleta.nome, escola: atleta.escola ?? '' }
 
   carregando.value = false
 }
 
 onMounted(carregar)
+
+// ================================================================
+// Autoatendimento: só nome/escola, foto e senha. A trigger no banco
+// (migration_097) barra qualquer outro campo se for o próprio atleta
+// editando, então nem precisamos validar isso aqui além do form.
+// ================================================================
+const editando = ref(false)
+const formEdicao = ref({ nome: '', escola: '' })
+const salvandoEdicao = ref(false)
+const erroEdicao = ref('')
+
+function iniciarEdicao() {
+  formEdicao.value = { nome: meuCadastro.value.nome, escola: meuCadastro.value.escola ?? '' }
+  erroEdicao.value = ''
+  editando.value = true
+}
+
+async function salvarEdicao() {
+  if (!formEdicao.value.nome.trim()) {
+    erroEdicao.value = 'O nome não pode ficar em branco.'
+    return
+  }
+  salvandoEdicao.value = true
+  erroEdicao.value = ''
+  const { error } = await supabase
+    .from('atletas_base')
+    .update({ nome: formEdicao.value.nome.trim(), escola: formEdicao.value.escola.trim() || null })
+    .eq('id', meuCadastro.value.id)
+  salvandoEdicao.value = false
+  if (error) {
+    erroEdicao.value = 'Não foi possível salvar: ' + error.message
+    return
+  }
+  meuCadastro.value.nome = formEdicao.value.nome.trim()
+  meuCadastro.value.escola = formEdicao.value.escola.trim() || null
+  editando.value = false
+}
+
+function aoAtualizarMinhaFoto(url) {
+  meuCadastro.value.avatar_url = url
+}
+
+const novaSenha = ref('')
+const trocandoSenha = ref(false)
+const erroSenha = ref('')
+const sucessoSenha = ref('')
+
+async function trocarMinhaSenha() {
+  erroSenha.value = ''
+  sucessoSenha.value = ''
+  if (novaSenha.value.length < 6) {
+    erroSenha.value = 'A senha precisa ter pelo menos 6 caracteres.'
+    return
+  }
+  trocandoSenha.value = true
+  const { error } = await supabase.auth.updateUser({ password: novaSenha.value })
+  trocandoSenha.value = false
+  if (error) {
+    erroSenha.value = 'Não foi possível trocar a senha: ' + error.message
+    return
+  }
+  novaSenha.value = ''
+  sucessoSenha.value = 'Senha atualizada!'
+}
 </script>
 
 <template>
@@ -68,59 +157,158 @@ onMounted(carregar)
         <p class="mt-2 text-sm text-ink-soft">Não encontramos seu cadastro de atleta. Fale com seu responsável ou com a coordenação.</p>
       </div>
 
-      <div v-else class="mt-8 space-y-6">
-        <div class="rounded-2xl bg-white p-7 shadow-card">
-          <h2 class="font-display text-2xl font-bold text-ink">{{ meuCadastro.nome }}</h2>
-          <p class="mt-1 text-sm text-ink-soft">
-            {{ nomeCategoria(meuCadastro.categoria) }} · {{ idadeAtual(meuCadastro.data_nascimento) }} anos
-            <span v-if="meuCadastro.posicao"> · {{ posicaoLabel(meuCadastro.posicao) }}</span>
-          </p>
-          <span :class="['mt-3 inline-block rounded-full px-3 py-1 text-xs font-semibold', statusAtletaClasses(meuCadastro.status)]">
-            {{ statusAtletaLabel(meuCadastro.status) }}
-          </span>
+      <div v-else class="mt-8 space-y-5">
 
-          <dl class="mt-5 space-y-3 border-t border-ink/8 pt-4">
-            <div class="flex justify-between text-sm"><dt class="text-ink-soft">No projeto desde</dt><dd class="text-ink">{{ formatarData(meuCadastro.data_ingresso) }}</dd></div>
-            <div v-if="meuCadastro.escola" class="flex justify-between text-sm"><dt class="text-ink-soft">Escola</dt><dd class="text-ink">{{ meuCadastro.escola }}</dd></div>
-          </dl>
-        </div>
-
-        <div v-if="meuCadastro.plano" class="rounded-2xl bg-white p-6 shadow-card">
-          <p class="font-mono-label text-[9px] font-bold text-ink-soft">MEU PLANO</p>
-          <p class="mt-1 text-lg font-bold text-ink">{{ meuCadastro.plano.nome }}</p>
-          <p class="text-sm text-ink-soft">{{ brl(meuCadastro.plano.valor_mensal) }}/mês</p>
-        </div>
-
-        <div v-if="minhasMensalidades.length" class="rounded-2xl bg-white p-6 shadow-card">
-          <p class="font-mono-label text-[9px] font-bold text-ink-soft">SITUAÇÃO RECENTE</p>
-          <div class="mt-3 divide-y divide-ink/8">
-            <div v-for="m in minhasMensalidades" :key="m.id" class="flex items-center justify-between py-2 text-sm">
-              <span class="text-ink">{{ formatarCompetencia(m.competencia) }}</span>
-              <span :class="['rounded-full px-3 py-1 text-xs font-semibold', mensalidadeBaseStatusClasses(m.status)]">{{ mensalidadeBaseStatusLabel(m.status) }}</span>
-            </div>
-          </div>
-        </div>
-
-        <div v-if="meuHistoricoEventos.length" class="rounded-2xl bg-white p-6 shadow-card">
-          <p class="font-mono-label text-[9px] font-bold text-ink-soft">MEU HISTÓRICO RECENTE</p>
-          <div class="mt-3 divide-y divide-ink/8">
-            <div v-for="p in meuHistoricoEventos" :key="p.id" class="flex items-center justify-between gap-2 py-2 text-sm">
+        <!-- Cabeçalho + foto + dados cadastrais (nome/escola editáveis) -->
+        <div class="rounded-2xl bg-white p-6 shadow-card">
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex items-start gap-3">
+              <AvatarUpload
+                :profile-id="meuCadastro.id"
+                :avatar-url="meuCadastro.avatar_url"
+                :nome="meuCadastro.nome"
+                table="atletas_base"
+                editable
+                size="md"
+                @update:avatar-url="aoAtualizarMinhaFoto"
+              />
               <div>
-                <p class="text-ink">{{ p.evento.titulo }}</p>
-                <p class="text-xs text-ink-soft">{{ tipoEventoLabel(p.evento.tipo) }} · {{ formatarData(p.evento.data) }}</p>
+                <h2 class="font-display text-xl font-bold text-ink">{{ meuCadastro.nome }}</h2>
+                <p class="mt-0.5 text-xs text-ink-soft">
+                  {{ nomeCategoria(meuCadastro.categoria) }} · {{ idadeAtual(meuCadastro.data_nascimento) }} anos
+                  <span v-if="meuCadastro.posicao"> · {{ posicaoLabel(meuCadastro.posicao) }}</span>
+                </p>
+                <p v-if="tempoNoProjeto(meuCadastro.data_ingresso)" class="mt-0.5 text-xs text-ink-soft">No projeto há {{ tempoNoProjeto(meuCadastro.data_ingresso) }} · desde {{ formatarDataCurta(meuCadastro.data_ingresso) }}</p>
               </div>
-              <div class="text-right text-xs">
-                <p v-if="p.presente !== null" :class="p.presente ? 'text-[#27500A]' : 'text-brand-deep'">{{ p.presente ? 'presente' : 'ausente' }}</p>
-                <p v-if="p.desempenho_nota !== null" class="text-ink-soft">nota {{ p.desempenho_nota }}</p>
+            </div>
+            <span :class="['flex-shrink-0 rounded-full px-3 py-1 text-xs font-semibold', statusAtletaClasses(meuCadastro.status)]">
+              {{ statusAtletaLabel(meuCadastro.status) }}
+            </span>
+          </div>
+
+          <div class="mt-5 rounded-xl bg-paper-dim p-4">
+            <div class="flex items-center justify-between">
+              <p class="font-mono-label text-[9px] font-bold text-ink-soft">MEUS DADOS</p>
+              <button v-if="!editando" class="text-xs font-semibold text-brand-deep hover:underline" @click="iniciarEdicao">Editar nome/escola</button>
+            </div>
+
+            <dl v-if="!editando" class="mt-3 space-y-2 text-sm text-ink">
+              <div class="flex justify-between"><dt class="text-ink-soft">Nascimento</dt><dd>{{ formatarData(meuCadastro.data_nascimento) }}</dd></div>
+              <div class="flex justify-between"><dt class="text-ink-soft">Escola</dt><dd>{{ meuCadastro.escola || '—' }}</dd></div>
+              <div class="flex justify-between"><dt class="text-ink-soft">No projeto desde</dt><dd>{{ formatarData(meuCadastro.data_ingresso) }}</dd></div>
+            </dl>
+
+            <form v-else class="mt-3 space-y-3" @submit.prevent="salvarEdicao">
+              <div>
+                <label class="text-xs font-semibold text-ink-soft">Nome</label>
+                <input v-model="formEdicao.nome" required class="mt-1 w-full rounded-lg border border-ink/15 px-3 py-2 text-sm" />
               </div>
+              <div>
+                <label class="text-xs font-semibold text-ink-soft">Escola</label>
+                <input v-model="formEdicao.escola" class="mt-1 w-full rounded-lg border border-ink/15 px-3 py-2 text-sm" />
+              </div>
+              <p class="text-[11px] text-ink-soft">Data de nascimento, posição e categoria só podem ser alteradas pelo seu responsável ou pela coordenação.</p>
+              <p v-if="erroEdicao" class="text-xs text-brand-deep">{{ erroEdicao }}</p>
+              <div class="flex gap-2">
+                <button type="submit" :disabled="salvandoEdicao" class="rounded-full bg-brand px-4 py-2 text-xs font-bold text-white hover:bg-brand-deep disabled:opacity-50">{{ salvandoEdicao ? 'Salvando...' : 'Salvar' }}</button>
+                <button type="button" class="rounded-full border border-ink/15 px-4 py-2 text-xs font-semibold text-ink-soft" @click="editando = false">Cancelar</button>
+              </div>
+            </form>
+          </div>
+
+          <!-- Troca de senha -->
+          <form class="mt-4 flex flex-wrap items-center gap-3 border-t border-ink/10 pt-4" @submit.prevent="trocarMinhaSenha">
+            <input v-model="novaSenha" type="password" placeholder="Nova senha (mín. 6 caracteres)" class="min-w-0 flex-1 rounded-lg border border-ink/15 px-3 py-2 text-sm" />
+            <button type="submit" :disabled="trocandoSenha" class="rounded-full bg-ink px-4 py-2 text-xs font-bold text-white hover:bg-ink/90 disabled:opacity-50">{{ trocandoSenha ? 'Trocando...' : 'Trocar senha' }}</button>
+            <p v-if="erroSenha" class="w-full text-xs text-brand-deep">{{ erroSenha }}</p>
+            <p v-if="sucessoSenha" class="w-full text-xs text-[#27500A]">{{ sucessoSenha }}</p>
+          </form>
+        </div>
+
+        <!-- Evolução e desempenho -->
+        <AtletaEvolucaoDashboard :atleta="meuCadastro" />
+
+        <!-- Plano / mensalidades -->
+        <div class="rounded-2xl bg-white p-6 shadow-card">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="font-mono-label text-[9px] font-bold text-ink-soft">PLANO ATUAL</p>
+              <p class="mt-1 text-sm font-semibold text-ink">{{ meuCadastro.planoVigente?.plano?.nome ?? '—' }}</p>
+              <p v-if="meuCadastro.planoVigente?.plano" class="text-xs text-ink-soft">{{ brl(meuCadastro.planoVigente.plano.valor_mensal) }}/mês</p>
+              <p v-if="meuCadastro.planoVigente?.data_inicio" class="text-[11px] text-ink-soft">vigente desde {{ formatarDataCurta(meuCadastro.planoVigente.data_inicio) }}</p>
+            </div>
+            <div v-if="meuCadastro.matricula" class="text-right">
+              <p class="text-xs text-ink-soft">Taxa de matrícula</p>
+              <span :class="['mt-1 inline-block rounded-full px-3 py-1 text-xs font-semibold', statusFinanceiroBaseClasses(meuCadastro.matricula.status)]">
+                {{ meuCadastro.matricula.status === 'isento' ? 'isenta' : meuCadastro.matricula.status }} · {{ brl(meuCadastro.matricula.valor) }}
+              </span>
+            </div>
+          </div>
+
+          <div v-if="meuCadastro.mensalidades.length" class="mt-3 space-y-1.5 border-t border-ink/10 pt-3">
+            <p class="font-mono-label text-[9px] font-bold text-ink-soft">MENSALIDADES</p>
+            <div v-for="m in meuCadastro.mensalidades" :key="m.id" class="flex items-center justify-between text-xs">
+              <span class="text-ink-soft">{{ formatarCompetencia(m.competencia) }}</span>
+              <span class="flex items-center gap-2">
+                <span class="text-ink">{{ brl(m.valor) }}</span>
+                <span :class="['rounded-full px-2.5 py-0.5 text-[10px] font-semibold', mensalidadeBaseStatusClasses(m.status)]">{{ mensalidadeBaseStatusLabel(m.status) }}</span>
+              </span>
             </div>
           </div>
         </div>
 
-        <div class="rounded-2xl border border-dashed border-ink/15 p-6 text-center">
-          <Icon name="calendar" class="mx-auto h-6 w-6 text-ink-soft/50" />
-          <p class="mt-2 text-sm text-ink-soft">Avaliação por valência (física, técnica, comportamental) detalhada chega numa próxima fase do módulo.</p>
+        <!-- Avaliações periódicas -->
+        <div v-if="meuCadastro.avaliacoes.length" class="rounded-2xl bg-white p-6 shadow-card">
+          <p class="font-mono-label text-[9px] font-bold text-ink-soft">DESEMPENHO — AVALIAÇÕES PERIÓDICAS</p>
+          <div class="mt-2 divide-y divide-ink/8">
+            <div v-for="v in meuCadastro.avaliacoes" :key="v.id" class="py-2 text-xs">
+              <div class="flex items-center justify-between">
+                <span class="font-semibold text-ink">{{ tipoAvaliacaoLabel(v.tipo) }}</span>
+                <span class="text-ink-soft">{{ formatarDataCurta(v.data) }}<span v-if="v.nota !== null"> · nota {{ v.nota }}</span></span>
+              </div>
+              <p v-if="v.observacoes" class="mt-0.5 text-ink-soft">{{ v.observacoes }}</p>
+            </div>
+          </div>
         </div>
+
+        <!-- Histórico de eventos (frequência + o que foi trabalhado) -->
+        <div v-if="meuCadastro.historicoEventos.length" class="rounded-2xl bg-white p-6 shadow-card">
+          <p class="font-mono-label text-[9px] font-bold text-ink-soft">FREQUÊNCIA E AULAS RECENTES</p>
+          <div class="mt-2 divide-y divide-ink/8">
+            <div v-for="p in meuCadastro.historicoEventos" :key="p.id" class="py-2 text-xs">
+              <div class="flex cursor-pointer items-center justify-between gap-2" @click="p.expandido = !p.expandido">
+                <div>
+                  <p class="text-ink">{{ p.evento.titulo }}</p>
+                  <p class="text-ink-soft">{{ tipoEventoLabel(p.evento.tipo) }} · {{ formatarDataCurta(p.evento.data) }}</p>
+                </div>
+                <div class="flex items-center gap-2">
+                  <div class="text-right">
+                    <p v-if="p.presente !== null" :class="p.presente ? 'text-[#27500A]' : 'text-brand-deep'">{{ p.presente ? 'presente' : 'ausente' }}</p>
+                    <p v-if="p.desempenho_nota !== null" class="text-ink-soft">nota {{ p.desempenho_nota }}</p>
+                  </div>
+                  <span v-if="p.evento.plano_atividades || p.desempenho_obs" class="text-ink-soft">{{ p.expandido ? '▲' : '▼' }}</span>
+                </div>
+              </div>
+              <template v-if="p.expandido">
+                <p v-if="p.evento.plano_atividades" class="mt-1 text-ink-soft"><strong class="text-ink">O que foi feito:</strong> {{ p.evento.plano_atividades }}</p>
+                <p v-if="p.desempenho_obs" class="mt-0.5 text-ink-soft"><strong class="text-ink">Observação do professor:</strong> {{ p.desempenho_obs }}</p>
+                <p v-if="!p.evento.plano_atividades && !p.desempenho_obs" class="mt-1 text-ink-soft">Sem observações registradas nessa aula.</p>
+              </template>
+            </div>
+          </div>
+        </div>
+
+        <!-- Fotos e vídeos dos treinos/eventos -->
+        <div v-if="meuCadastro.fotosEventos.length" class="rounded-2xl bg-white p-6 shadow-card">
+          <p class="font-mono-label text-[9px] font-bold text-ink-soft">FOTOS E VÍDEOS DOS TREINOS E EVENTOS</p>
+          <div class="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-4">
+            <a v-for="m in meuCadastro.fotosEventos" :key="m.id" :href="m.url" target="_blank" rel="noopener" class="overflow-hidden rounded-lg bg-ink/5">
+              <img v-if="m.tipo === 'foto'" :src="m.url" class="h-20 w-full object-cover" />
+              <video v-else :src="m.url" class="h-20 w-full object-cover"></video>
+            </a>
+          </div>
+        </div>
+
       </div>
 
   </div>

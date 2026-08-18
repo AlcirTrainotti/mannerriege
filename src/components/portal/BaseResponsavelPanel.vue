@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase.js'
 import { useAuth } from '../../lib/useAuth.js'
 import Icon from '../Icon.vue'
 import AvatarUpload from './AvatarUpload.vue'
+import AtletaEvolucaoDashboard from './AtletaEvolucaoDashboard.vue'
 import { formatarData } from '../../lib/categoria.js'
 import { brl, formatarDataCurta } from '../../data/campeonatos.js'
 import { formatarCompetencia } from '../../data/financeiro.js'
@@ -60,6 +61,7 @@ async function carregarMeusAtletas() {
       planoVigente: (planosVigentes ?? []).find((p) => p.atleta_id === a.id) ?? null,
       mensalidades: (mensalidades ?? []).filter((m) => m.atleta_id === a.id),
       matricula: (matriculas ?? []).find((m) => m.atleta_id === a.id) ?? null,
+      participacoesTotal: participacoesDoAtleta,
       historicoEventos: participacoesDoAtleta.slice(0, 8).map((p) => ({ ...p, expandido: false })),
       avaliacoes: (avaliacoes ?? []).filter((v) => v.atleta_id === a.id),
       fotosEventos: (midias ?? []).filter((m) => eventoIdsDoAtleta.has(m.evento_id)),
@@ -393,6 +395,11 @@ onMounted(() => {
             <span :class="['flex-shrink-0 rounded-full px-3 py-1 text-xs font-semibold', statusAtletaClasses(atleta.status)]">
               {{ statusAtletaLabel(atleta.status) }}
             </span>
+          </div>
+
+          <!-- Evolução e desempenho -->
+          <div class="mt-5">
+            <AtletaEvolucaoDashboard :atleta="atleta" />
           </div>
 
           <!-- Dados cadastrais -->
