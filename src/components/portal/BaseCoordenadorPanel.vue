@@ -1,9 +1,10 @@
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, defineAsyncComponent } from 'vue'
 import { createClient } from '@supabase/supabase-js'
 import { supabase } from '../../lib/supabase.js'
 import { useAuth } from '../../lib/useAuth.js'
 import Icon from '../Icon.vue'
+const Quadras = defineAsyncComponent(() => import('./Quadras.vue'))
 import { brl } from '../../data/campeonatos.js'
 import { formatarDataCurta } from '../../data/campeonatos.js'
 import {
@@ -70,6 +71,7 @@ onMounted(carregarTudo)
 const filtroCategoria = ref('todas')
 const filtroStatus = ref('todos')
 const filtroSexo = ref('todos')
+const filtroVinculo = ref('todos')
 const filtroBusca = ref('')
 
 const atletasFiltrados = computed(() => {
@@ -77,6 +79,7 @@ const atletasFiltrados = computed(() => {
     if (filtroCategoria.value !== 'todas' && a.categoria_id !== filtroCategoria.value) return false
     if (filtroStatus.value !== 'todos' && a.status !== filtroStatus.value) return false
     if (filtroSexo.value !== 'todos' && a.sexo !== filtroSexo.value) return false
+    if (filtroVinculo.value !== 'todos' && a.vinculo !== filtroVinculo.value) return false
     if (filtroBusca.value.trim() && !a.nome.toLowerCase().includes(filtroBusca.value.trim().toLowerCase())) return false
     return true
   })
@@ -332,6 +335,36 @@ async function salvarEdicaoAtleta(atleta) {
 }
 
 // ================================================================
+// Aba Atletas — trocar a senha de login do responsável (a partir da
+// edição do atleta) — exige a Edge Function porque trocar a senha de
+// outra pessoa precisa de privilégio de admin do Supabase Auth.
+// ================================================================
+const senhaResetId = ref(null) // responsavel_id com o campo de nova senha aberto
+const novaSenhaReset = ref('')
+const resetandoSenha = ref(false)
+
+function abrirResetSenha(responsavelId) {
+  senhaResetId.value = senhaResetId.value === responsavelId ? null : responsavelId
+  novaSenhaReset.value = ''
+}
+
+async function confirmarResetSenha(responsavelId) {
+  if (!novaSenhaReset.value.trim()) return
+  resetandoSenha.value = true
+  const { data, error } = await supabase.functions.invoke('resetar-senha-responsavel-base', {
+    body: { responsavelId, senha: novaSenhaReset.value },
+  })
+  resetandoSenha.value = false
+  if (error || data?.error) {
+    alert('Não foi possível trocar a senha: ' + (data?.error ?? error?.message))
+    return
+  }
+  senhaResetId.value = null
+  novaSenhaReset.value = ''
+  alert('Senha atualizada com sucesso.')
+}
+
+// ================================================================
 // Aba Atletas — promover um atleta "somente evento" a "atleta do
 // projeto" (mensalista), atribuindo um plano vigente
 // ================================================================
@@ -424,19 +457,21 @@ async function excluirCategoria(categoria) {
 // Aba Planos
 // ================================================================
 const mostrarFormPlano = ref(false)
-const formPlano = ref({ nome: '', valor_mensal: 0, descricao: '' })
+function formPlanoVazio() { return { nome: '', valor_mensal: 0, descricao: '', cobra_taxa_matricula: false, valor_taxa_matricula: null } }
+const formPlano = ref(formPlanoVazio())
 
 async function salvarPlano() {
   const f = formPlano.value
   if (!f.nome.trim()) return
   const { data, error } = await supabase.from('planos_base').insert({
     nome: f.nome.trim(), valor_mensal: f.valor_mensal || 0, descricao: f.descricao.trim() || null,
+    cobra_taxa_matricula: f.cobra_taxa_matricula, valor_taxa_matricula: f.cobra_taxa_matricula ? (f.valor_taxa_matricula || 0) : null,
     ordem: planos.value.length + 1,
   }).select().single()
   if (!error) {
     planos.value.push(data)
     mostrarFormPlano.value = false
-    formPlano.value = { nome: '', valor_mensal: 0, descricao: '' }
+    formPlano.value = formPlanoVazio()
   }
 }
 
@@ -460,19 +495,24 @@ const formEdicaoPlano = ref(null)
 
 function abrirEdicaoPlano(plano) {
   editandoPlanoId.value = plano.id
-  formEdicaoPlano.value = { nome: plano.nome, valor_mensal: plano.valor_mensal, descricao: plano.descricao ?? '' }
+  formEdicaoPlano.value = {
+    nome: plano.nome, valor_mensal: plano.valor_mensal, descricao: plano.descricao ?? '',
+    cobra_taxa_matricula: plano.cobra_taxa_matricula ?? false, valor_taxa_matricula: plano.valor_taxa_matricula,
+  }
 }
 
 async function salvarEdicaoPlano(plano) {
   const f = formEdicaoPlano.value
-  const { error } = await supabase.from('planos_base').update({
+  const patch = {
     nome: f.nome.trim(), valor_mensal: f.valor_mensal || 0, descricao: f.descricao.trim() || null,
-  }).eq('id', plano.id)
+    cobra_taxa_matricula: f.cobra_taxa_matricula, valor_taxa_matricula: f.cobra_taxa_matricula ? (f.valor_taxa_matricula || 0) : null,
+  }
+  const { error } = await supabase.from('planos_base').update(patch).eq('id', plano.id)
   if (error) {
     alert('Não foi possível salvar: ' + error.message)
     return
   }
-  Object.assign(plano, { nome: f.nome.trim(), valor_mensal: f.valor_mensal || 0, descricao: f.descricao.trim() || null })
+  Object.assign(plano, patch)
   editandoPlanoId.value = null
 }
 
@@ -495,13 +535,28 @@ const eventos = ref([])
 const eventosCarregados = ref(false)
 const mostrarFormEvento = ref(false)
 const filtroEventoCategoria = ref('todas')
-const formEvento = ref({ categoria_id: '', tipo: 'treino', titulo: '', data: '', hora_inicio: '', hora_fim: '', local: '', plano_id: '', plano_atividades: '', observacoes: '' })
+const formEvento = ref({ categoria_id: '', tipo: 'treino', titulo: '', data: '', hora_inicio: '', hora_fim: '', local: '', quadra_id: '', plano_id: '', plano_atividades: '', observacoes: '' })
 
 function planoDoEvento(evento) {
   return planos.value.find((p) => p.id === evento.plano_id)
 }
 
+const quadras = ref([])
+const quadrasCarregadas = ref(false)
+
+function quadraDoEvento(evento) {
+  return quadras.value.find((q) => q.id === evento.quadra_id)
+}
+
+async function carregarQuadras() {
+  if (quadrasCarregadas.value) return
+  const { data } = await supabase.from('quadras').select('id, nome, ativo, endereco_bairro, endereco_cidade').order('nome')
+  quadras.value = data ?? []
+  quadrasCarregadas.value = true
+}
+
 async function carregarEventos() {
+  await carregarQuadras()
   if (eventosCarregados.value) return
   const { data } = await supabase.from('eventos_base').select('*').order('data', { ascending: false })
   eventos.value = data ?? []
@@ -519,13 +574,14 @@ async function salvarEvento() {
   const { data, error } = await supabase.from('eventos_base').insert({
     categoria_id: f.categoria_id || null, tipo: f.tipo, titulo: f.titulo.trim(),
     data: f.data, hora_inicio: f.hora_inicio || null, hora_fim: f.hora_fim || null,
-    local: f.local.trim() || null, plano_id: f.plano_id || null, plano_atividades: f.plano_atividades.trim() || null,
+    quadra_id: f.quadra_id || null, local: f.local.trim() || null,
+    plano_id: f.plano_id || null, plano_atividades: f.plano_atividades.trim() || null,
     observacoes: f.observacoes.trim() || null, criado_por: profile.value.id,
   }).select().single()
   if (!error) {
     eventos.value.unshift(data)
     mostrarFormEvento.value = false
-    formEvento.value = { categoria_id: '', tipo: 'treino', titulo: '', data: '', hora_inicio: '', hora_fim: '', local: '', plano_id: '', plano_atividades: '', observacoes: '' }
+    formEvento.value = { categoria_id: '', tipo: 'treino', titulo: '', data: '', hora_inicio: '', hora_fim: '', local: '', quadra_id: '', plano_id: '', plano_atividades: '', observacoes: '' }
   }
 }
 
@@ -537,7 +593,7 @@ function abrirEdicaoEvento(evento) {
   formEdicaoEvento.value = {
     categoria_id: evento.categoria_id ?? '', tipo: evento.tipo, titulo: evento.titulo,
     data: evento.data, hora_inicio: evento.hora_inicio ?? '', hora_fim: evento.hora_fim ?? '',
-    local: evento.local ?? '', plano_id: evento.plano_id ?? '',
+    quadra_id: evento.quadra_id ?? '', local: evento.local ?? '', plano_id: evento.plano_id ?? '',
     plano_atividades: evento.plano_atividades ?? '', observacoes: evento.observacoes ?? '',
   }
 }
@@ -548,7 +604,7 @@ async function salvarEdicaoEvento(evento) {
   const patch = {
     categoria_id: f.categoria_id || null, tipo: f.tipo, titulo: f.titulo.trim(),
     data: f.data, hora_inicio: f.hora_inicio || null, hora_fim: f.hora_fim || null,
-    local: f.local.trim() || null, plano_id: f.plano_id || null,
+    quadra_id: f.quadra_id || null, local: f.local.trim() || null, plano_id: f.plano_id || null,
     plano_atividades: f.plano_atividades.trim() || null, observacoes: f.observacoes.trim() || null,
   }
   const { error } = await supabase.from('eventos_base').update(patch).eq('id', evento.id)
@@ -689,7 +745,7 @@ async function excluirEvento(evento) {
       <div>
         <p class="font-mono-label text-[11px] font-bold text-brand-deep">Coordenação · Categorias de Base</p>
         <h1 class="mt-1 font-display text-3xl font-extrabold text-ink">
-          {{ { atletas: 'Atletas', categorias: 'Categorias', planos: 'Planos', eventos: 'Eventos' }[aba] }}
+          {{ { atletas: 'Atletas', categorias: 'Categorias', planos: 'Planos', eventos: 'Eventos', quadras: 'Quadras' }[aba] }}
         </h1>
       </div>
       <div class="flex items-center gap-3">
@@ -703,6 +759,7 @@ async function excluirEvento(evento) {
       <button class="rounded-full px-4 py-2 text-xs font-semibold transition-colors" :class="aba === 'eventos' ? 'bg-ink text-white' : 'bg-paper-dim text-ink-soft hover:bg-ink/10'" @click="aba = 'eventos'; carregarEventos()">Eventos</button>
       <button class="rounded-full px-4 py-2 text-xs font-semibold transition-colors" :class="aba === 'categorias' ? 'bg-ink text-white' : 'bg-paper-dim text-ink-soft hover:bg-ink/10'" @click="aba = 'categorias'">Categorias</button>
       <button class="rounded-full px-4 py-2 text-xs font-semibold transition-colors" :class="aba === 'planos' ? 'bg-ink text-white' : 'bg-paper-dim text-ink-soft hover:bg-ink/10'" @click="aba = 'planos'">Planos</button>
+      <button class="rounded-full px-4 py-2 text-xs font-semibold transition-colors" :class="aba === 'quadras' ? 'bg-ink text-white' : 'bg-paper-dim text-ink-soft hover:bg-ink/10'" @click="aba = 'quadras'">Quadras</button>
     </div>
 
     <p v-if="carregando" class="mt-8 text-sm text-ink-soft">Carregando...</p>
@@ -723,6 +780,10 @@ async function excluirEvento(evento) {
         <select v-model="filtroSexo" class="rounded-lg border border-ink/15 px-2 py-2 text-xs">
           <option value="todos">Ambos os sexos</option>
           <option v-for="s in sexoOptions" :key="s.value" :value="s.value">{{ s.label }}</option>
+        </select>
+        <select v-model="filtroVinculo" class="rounded-lg border border-ink/15 px-2 py-2 text-xs">
+          <option value="todos">Projeto e evento</option>
+          <option v-for="v in vinculoAtletaOptions" :key="v.value" :value="v.value">{{ v.label }}</option>
         </select>
       </div>
 
@@ -853,11 +914,18 @@ async function excluirEvento(evento) {
 
             <div v-if="formEdicaoAtleta.contatos.length" class="space-y-3 border-t border-ink/10 pt-3">
               <p class="font-mono-label text-[9px] font-bold text-ink-soft">CONTATO DO(S) RESPONSÁVEL(IS)</p>
-              <div v-for="c in formEdicaoAtleta.contatos" :key="c.responsavel_id" class="grid gap-2 sm:grid-cols-2">
-                <input v-model="c.nome" placeholder="Nome do responsável" class="rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm sm:col-span-2" />
-                <input v-model="c.telefone" placeholder="WhatsApp" class="rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm" />
-                <input v-model="c.email" placeholder="E-mail" class="rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm" />
-                <input v-model="c.parentesco" placeholder="Parentesco (ex: mãe, pai, avó)" class="rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm sm:col-span-2" />
+              <div v-for="c in formEdicaoAtleta.contatos" :key="c.responsavel_id" class="space-y-2 rounded-lg border border-ink/10 p-3">
+                <div class="grid gap-2 sm:grid-cols-2">
+                  <input v-model="c.nome" placeholder="Nome do responsável" class="rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm sm:col-span-2" />
+                  <input v-model="c.telefone" placeholder="WhatsApp" class="rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm" />
+                  <input v-model="c.email" placeholder="E-mail" class="rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm" />
+                  <input v-model="c.parentesco" placeholder="Parentesco (ex: mãe, pai, avó)" class="rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm sm:col-span-2" />
+                </div>
+                <button type="button" class="text-xs font-semibold text-brand-deep hover:underline" @click="abrirResetSenha(c.responsavel_id)">{{ senhaResetId === c.responsavel_id ? 'Fechar' : 'Trocar senha de acesso' }}</button>
+                <div v-if="senhaResetId === c.responsavel_id" class="flex flex-wrap items-center gap-2">
+                  <input v-model="novaSenhaReset" type="text" placeholder="Nova senha" class="rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm" />
+                  <button type="button" :disabled="resetandoSenha" class="rounded-full bg-brand px-3 py-1.5 text-xs font-bold text-white hover:bg-brand-deep disabled:opacity-50" @click="confirmarResetSenha(c.responsavel_id)">{{ resetandoSenha ? 'Trocando...' : 'Confirmar' }}</button>
+                </div>
               </div>
             </div>
 
@@ -891,9 +959,13 @@ async function excluirEvento(evento) {
             <option v-for="c in categorias" :key="c.id" :value="c.id">{{ nomeCategoria(c) }}</option>
           </select>
           <input v-model="formEvento.data" type="date" required class="rounded-lg border border-ink/15 px-3 py-2 text-sm" />
-          <input v-model="formEvento.local" placeholder="Local" class="rounded-lg border border-ink/15 px-3 py-2 text-sm" />
+          <select v-model="formEvento.quadra_id" class="rounded-lg border border-ink/15 px-3 py-2 text-sm">
+            <option value="">Quadra... (cadastre em Quadras)</option>
+            <option v-for="q in quadras.filter((x) => x.ativo)" :key="q.id" :value="q.id">{{ q.nome }}</option>
+          </select>
           <input v-model="formEvento.hora_inicio" type="time" placeholder="Início" class="rounded-lg border border-ink/15 px-3 py-2 text-sm" />
           <input v-model="formEvento.hora_fim" type="time" placeholder="Fim" class="rounded-lg border border-ink/15 px-3 py-2 text-sm" />
+          <input v-model="formEvento.local" placeholder="Complemento do local (opcional, ex: portão dos fundos)" class="rounded-lg border border-ink/15 px-3 py-2 text-sm sm:col-span-2" />
           <select v-model="formEvento.plano_id" class="rounded-lg border border-ink/15 px-3 py-2 text-sm sm:col-span-2">
             <option value="">Sem plano vinculado</option>
             <option v-for="p in planos" :key="p.id" :value="p.id">{{ p.nome }} ({{ brl(p.valor_mensal) }}/mês)</option>
@@ -920,7 +992,8 @@ async function excluirEvento(evento) {
               <p class="text-xs text-ink-soft">
                 {{ tipoEventoLabel(e.tipo) }} · {{ formatarDataCurta(e.data) }}
                 <span v-if="e.hora_inicio"> · {{ formatarHora(e.hora_inicio) }}<span v-if="e.hora_fim">–{{ formatarHora(e.hora_fim) }}</span></span>
-                <span v-if="e.local"> · {{ e.local }}</span>
+                <span v-if="quadraDoEvento(e)"> · {{ quadraDoEvento(e).nome }}</span>
+                <span v-if="e.local"> ({{ e.local }})</span>
                 · {{ nomeCategoria(categoriaDoAtleta({ categoria_id: e.categoria_id })) === '—' ? 'Todas as categorias' : nomeCategoria(categoriaDoAtleta({ categoria_id: e.categoria_id })) }}
                 <span v-if="planoDoEvento(e)"> · plano {{ planoDoEvento(e).nome }}</span>
               </p>
@@ -942,9 +1015,13 @@ async function excluirEvento(evento) {
                 <option v-for="c in categorias" :key="c.id" :value="c.id">{{ nomeCategoria(c) }}</option>
               </select>
               <input v-model="formEdicaoEvento.data" type="date" required class="rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm" />
-              <input v-model="formEdicaoEvento.local" placeholder="Local" class="rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm" />
+              <select v-model="formEdicaoEvento.quadra_id" class="rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm">
+                <option value="">Quadra... (cadastre em Quadras)</option>
+                <option v-for="q in quadras.filter((x) => x.ativo)" :key="q.id" :value="q.id">{{ q.nome }}</option>
+              </select>
               <input v-model="formEdicaoEvento.hora_inicio" type="time" class="rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm" />
               <input v-model="formEdicaoEvento.hora_fim" type="time" class="rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm" />
+              <input v-model="formEdicaoEvento.local" placeholder="Complemento do local (opcional)" class="rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm sm:col-span-2" />
               <select v-model="formEdicaoEvento.plano_id" class="rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm sm:col-span-2">
                 <option value="">Sem plano vinculado</option>
                 <option v-for="p in planos" :key="p.id" :value="p.id">{{ p.nome }} ({{ brl(p.valor_mensal) }}/mês)</option>
@@ -1067,13 +1144,18 @@ async function excluirEvento(evento) {
     </div>
 
     <!-- ===== PLANOS ===== -->
-    <div v-else class="mt-6">
+    <div v-else-if="aba === 'planos'" class="mt-6">
       <button v-if="!mostrarFormPlano" class="rounded-full bg-brand px-4 py-2 text-xs font-bold text-white hover:bg-brand-deep" @click="mostrarFormPlano = true">+ Novo plano</button>
 
       <form v-if="mostrarFormPlano" class="mt-4 space-y-3 rounded-2xl bg-white p-5 shadow-card" @submit.prevent="salvarPlano">
         <input v-model="formPlano.nome" placeholder="Nome do plano" required class="w-full rounded-lg border border-ink/15 px-3 py-2 text-sm" />
         <input v-model.number="formPlano.valor_mensal" type="number" step="0.01" placeholder="Valor mensal (0 = gratuito)" class="w-full rounded-lg border border-ink/15 px-3 py-2 text-sm" />
         <input v-model="formPlano.descricao" placeholder="Descrição (opcional)" class="w-full rounded-lg border border-ink/15 px-3 py-2 text-sm" />
+        <label class="flex items-center gap-2 text-xs text-ink">
+          <input v-model="formPlano.cobra_taxa_matricula" type="checkbox" class="h-3.5 w-3.5 rounded border-ink/30" />
+          Cobra taxa de matrícula (valor único na entrada, além da mensalidade)
+        </label>
+        <input v-if="formPlano.cobra_taxa_matricula" v-model.number="formPlano.valor_taxa_matricula" type="number" step="0.01" placeholder="Valor da taxa de matrícula (R$)" class="w-full rounded-lg border border-ink/15 px-3 py-2 text-sm" />
         <div class="flex gap-2">
           <button type="submit" class="rounded-full bg-brand px-4 py-2 text-xs font-bold text-white hover:bg-brand-deep">Salvar</button>
           <button type="button" class="rounded-full border border-ink/15 px-4 py-2 text-xs font-semibold text-ink-soft" @click="mostrarFormPlano = false">Cancelar</button>
@@ -1086,6 +1168,7 @@ async function excluirEvento(evento) {
             <div>
               <p class="text-sm font-semibold text-ink">{{ p.nome }} <span v-if="p.padrao" class="ml-1 rounded-full bg-gold-soft px-2 py-0.5 text-[10px] font-bold text-ink">PADRÃO</span></p>
               <p class="text-xs text-ink-soft">{{ brl(p.valor_mensal) }}/mês <span v-if="p.descricao"> · {{ p.descricao }}</span></p>
+              <p v-if="p.cobra_taxa_matricula" class="text-xs text-ink-soft">+ taxa de matrícula: {{ brl(p.valor_taxa_matricula) }}</p>
             </div>
             <div class="flex items-center gap-2">
               <button v-if="!p.padrao" class="text-xs font-semibold text-brand-deep hover:underline" @click="definirPlanoPadrao(p)">Tornar padrão</button>
@@ -1099,11 +1182,19 @@ async function excluirEvento(evento) {
             <input v-model="formEdicaoPlano.nome" required class="w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm" />
             <input v-model.number="formEdicaoPlano.valor_mensal" type="number" step="0.01" class="w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm" />
             <input v-model="formEdicaoPlano.descricao" class="w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm" />
+            <label class="flex items-center gap-2 text-xs text-ink">
+              <input v-model="formEdicaoPlano.cobra_taxa_matricula" type="checkbox" class="h-3.5 w-3.5 rounded border-ink/30" />
+              Cobra taxa de matrícula
+            </label>
+            <input v-if="formEdicaoPlano.cobra_taxa_matricula" v-model.number="formEdicaoPlano.valor_taxa_matricula" type="number" step="0.01" placeholder="Valor da taxa de matrícula (R$)" class="w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm" />
             <button type="submit" class="rounded-full bg-brand px-4 py-2 text-xs font-bold text-white hover:bg-brand-deep">Salvar</button>
           </form>
         </div>
       </div>
     </div>
+
+    <!-- ===== QUADRAS ===== -->
+    <Quadras v-else-if="aba === 'quadras'" class="mt-6" :embedded="true" />
 
   </div>
 </template>
