@@ -171,3 +171,33 @@ export function statusFinanceiroBaseClasses(status) {
   if (status === 'pago' || status === 'recebido') return 'bg-[#EAF3DE] text-[#27500A]'
   return 'bg-brand-soft text-brand-deep' // pendente
 }
+
+// --- Tempo de casa do atleta ---
+export function tempoNoProjeto(dataIngresso) {
+  if (!dataIngresso) return null
+  const inicio = new Date(dataIngresso + 'T00:00:00')
+  if (Number.isNaN(inicio.getTime())) return null
+  const hoje = new Date()
+  let meses = (hoje.getFullYear() - inicio.getFullYear()) * 12 + (hoje.getMonth() - inicio.getMonth())
+  if (hoje.getDate() < inicio.getDate()) meses--
+  if (meses < 0) meses = 0
+  if (meses < 1) return 'menos de 1 mês'
+  const anos = Math.floor(meses / 12)
+  const mesesRestantes = meses % 12
+  const partes = []
+  if (anos > 0) partes.push(`${anos} ano${anos > 1 ? 's' : ''}`)
+  if (mesesRestantes > 0) partes.push(`${mesesRestantes} mês${mesesRestantes > 1 ? 'es' : ''}`)
+  return partes.join(' e ')
+}
+
+// --- Mensagens: pra quem é a mensagem ---
+export const destinoMensagemOptions = [
+  { value: 'geral', label: 'Coordenação (geral)' },
+  { value: 'professor', label: 'Professor(a)' },
+  { value: 'financeiro', label: 'Financeiro' },
+  { value: 'coordenacao', label: 'Coordenação' },
+]
+
+export function destinoMensagemLabel(v) {
+  return destinoMensagemOptions.find((d) => d.value === v)?.label ?? v
+}

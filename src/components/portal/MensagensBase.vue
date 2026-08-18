@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { supabase } from '../../lib/supabase.js'
 import { useAuth } from '../../lib/useAuth.js'
 import { formatarData } from '../../lib/categoria.js'
+import { destinoMensagemLabel } from '../../data/base.js'
 
 // Mensagens da equipe da base com as famílias (um canal por
 // responsável) — espelha o mesmo canal que o responsável vê no próprio
@@ -145,6 +146,7 @@ async function enviarMensagem() {
           <div v-else class="max-h-80 space-y-2 overflow-y-auto">
             <div v-for="m in mensagens" :key="m.id" class="flex" :class="m.autor_id === profile.id ? 'justify-end' : 'justify-start'">
               <div class="max-w-[80%] rounded-xl px-3 py-2 text-sm" :class="m.autor_id === profile.id ? 'bg-brand text-white' : 'bg-white text-ink shadow-card'">
+                <p v-if="m.autor_id !== profile.id" class="mb-0.5 text-[9px] font-bold uppercase opacity-70">{{ destinoMensagemLabel(m.destino) }}</p>
                 <p>{{ m.corpo }}</p>
                 <p class="mt-1 text-[10px] opacity-70">{{ formatarData(m.criado_em?.slice(0, 10)) }}</p>
               </div>

@@ -8,6 +8,10 @@ const props = defineProps({
   nome: { type: String, default: '' },
   size: { type: String, default: 'md' }, // 'sm' | 'md' | 'lg'
   editable: { type: Boolean, default: false },
+  // Tabela onde salvar a avatar_url — 'profiles' (padrão, ex: sócio,
+  // responsável) ou 'atletas_base' (foto do atleta, que não tem linha
+  // própria em profiles).
+  table: { type: String, default: 'profiles' },
 })
 
 const emit = defineEmits(['update:avatarUrl'])
@@ -57,8 +61,8 @@ async function aoSelecionarArquivo(e) {
   const { data } = supabase.storage.from('avatares').getPublicUrl(caminho)
   const url = data.publicUrl + '?t=' + Date.now() // cache bust
 
-  // Salva no perfil
-  await supabase.from('profiles').update({ avatar_url: url }).eq('id', props.profileId)
+  // Salva no cadastro (perfil ou atleta, conforme a prop `table`)
+  await supabase.from(props.table).update({ avatar_url: url }).eq('id', props.profileId)
 
   emit('update:avatarUrl', url)
   uploading.value = false
