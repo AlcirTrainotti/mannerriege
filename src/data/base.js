@@ -193,7 +193,7 @@ export function tempoNoProjeto(dataIngresso) {
 // --- Mensagens: pra quem é a mensagem ---
 export const destinoMensagemOptions = [
   { value: 'geral', label: 'Coordenação (geral)' },
-  { value: 'professor', label: 'Professor(a)' },
+  { value: 'professor', label: 'Técnico(a) / Professor(a)' },
   { value: 'financeiro', label: 'Financeiro' },
   { value: 'coordenacao', label: 'Coordenação' },
 ]

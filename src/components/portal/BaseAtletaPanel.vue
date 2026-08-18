@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { supabase } from '../../lib/supabase.js'
 import { useAuth } from '../../lib/useAuth.js'
 import Icon from '../Icon.vue'
@@ -12,7 +12,7 @@ import {
   statusAtletaLabel, statusAtletaClasses, idadeAtual, nomeCategoria,
   mensalidadeBaseStatusLabel, mensalidadeBaseStatusClasses,
   posicaoLabel, tipoEventoLabel, tipoAvaliacaoLabel, statusFinanceiroBaseClasses,
-  tempoNoProjeto,
+  tempoNoProjeto, destinoMensagemOptions, destinoMensagemLabel,
 } from '../../data/base.js'
 
 // Painel do próprio atleta — espelha o que o responsável vê no dele,
@@ -72,7 +72,10 @@ async function carregar() {
   carregando.value = false
 }
 
-onMounted(carregar)
+onMounted(() => {
+  carregar()
+  carregarMensagens()
+})
 
 // ================================================================
 // Autoatendimento: só nome/escola, foto e senha. A trigger no banco
@@ -137,17 +140,116 @@ async function trocarMinhaSenha() {
   novaSenha.value = ''
   sucessoSenha.value = 'Senha atualizada!'
 }
+
+// ================================================================
+// Mensagens com a equipe do projeto — o atleta participa do mesmo
+// canal que o(s) responsável(is) já usam (migration_098): é uma
+// conversa por família, não uma caixa separada por pessoa. O sino
+// mostra quantas mensagens (da equipe ou do próprio responsável)
+// ainda não foram vistas.
+// ================================================================
+const meuCanalId = ref(null)
+const mensagens = ref([])
+const novaMensagem = ref('')
+const destinoMensagem = ref('geral')
+const enviandoMensagem = ref(false)
+const carregandoMensagens = ref(true)
+const sinoAberto = ref(false)
+
+const mensagensNaoLidas = computed(() => mensagens.value.filter((m) => m.autor_id !== profile.value.id && !m.lida))
+
+async function carregarMensagens() {
+  carregandoMensagens.value = true
+  const { data: canalId } = await supabase.rpc('meu_canal_mensagens_base')
+  meuCanalId.value = canalId ?? null
+  if (!meuCanalId.value) {
+    mensagens.value = []
+    carregandoMensagens.value = false
+    return
+  }
+  const { data } = await supabase.rpc('mensagens_canal_base', { p_responsavel_id: meuCanalId.value })
+  mensagens.value = data ?? []
+  carregandoMensagens.value = false
+}
+
+async function alternarSino() {
+  sinoAberto.value = !sinoAberto.value
+  if (!sinoAberto.value) return
+  const naoLidasIds = mensagensNaoLidas.value.map((m) => m.id)
+  if (naoLidasIds.length) {
+    await supabase.from('mensagens_base').update({ lida: true }).in('id', naoLidasIds)
+    mensagens.value.forEach((m) => { if (naoLidasIds.includes(m.id)) m.lida = true })
+  }
+}
+
+async function enviarMensagem() {
+  if (!novaMensagem.value.trim() || !meuCanalId.value) return
+  enviandoMensagem.value = true
+  const { data, error } = await supabase.from('mensagens_base').insert({
+    responsavel_id: meuCanalId.value, autor_id: profile.value.id, corpo: novaMensagem.value.trim(), destino: destinoMensagem.value,
+  }).select().single()
+  enviandoMensagem.value = false
+  if (!error) {
+    mensagens.value.push({ ...data, autor_nome: profile.value.nome })
+    novaMensagem.value = ''
+  }
+}
 </script>
 
 <template>
   <div class="mx-auto max-w-lg">
 
-      <div class="flex items-center justify-between gap-4">
+      <div class="flex flex-wrap items-center justify-between gap-4">
         <div>
           <p class="font-mono-label text-[11px] font-bold text-brand-deep">Categorias de Base</p>
           <h1 class="mt-1 font-display text-3xl font-extrabold text-ink">Meu desempenho</h1>
         </div>
-        <button class="rounded-full border border-ink/15 px-4 py-2 text-xs font-semibold text-ink-soft hover:border-ink/30" @click="logout">Sair</button>
+        <div class="flex items-center gap-3">
+          <!-- Sino de notificações / central de mensagens -->
+          <div v-if="meuCadastro" class="relative">
+            <button
+              class="relative flex h-9 w-9 items-center justify-center rounded-full border border-ink/15 text-ink-soft hover:border-ink/30"
+              title="Mensagens"
+              @click="alternarSino"
+            >
+              <Icon name="mail" class="h-4 w-4" />
+              <span v-if="mensagensNaoLidas.length" class="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-brand px-1 text-[9px] font-bold text-white">{{ mensagensNaoLidas.length }}</span>
+            </button>
+
+            <div v-if="sinoAberto" class="absolute right-0 top-11 z-20 w-80 rounded-2xl bg-white p-4 shadow-card sm:w-96">
+              <p class="font-mono-label text-[9px] font-bold text-ink-soft">MENSAGENS COM A EQUIPE DO PROJETO</p>
+
+              <p v-if="!meuCanalId && !carregandoMensagens" class="mt-3 text-xs text-ink-soft">Não encontramos um responsável vinculado ao seu cadastro — fale com a coordenação pra ativar suas mensagens.</p>
+
+              <template v-else>
+                <p v-if="carregandoMensagens" class="mt-3 text-sm text-ink-soft">Carregando...</p>
+                <div v-else class="mt-3 max-h-64 space-y-2 overflow-y-auto rounded-xl bg-paper-dim p-3">
+                  <p v-if="!mensagens.length" class="text-xs text-ink-soft">Nenhuma mensagem ainda — escreva aqui embaixo.</p>
+                  <div v-for="m in mensagens" :key="m.id" class="flex" :class="m.autor_id === profile.id ? 'justify-end' : 'justify-start'">
+                    <div class="max-w-[85%] rounded-xl px-3 py-2 text-sm" :class="m.autor_id === profile.id ? 'bg-brand text-white' : 'bg-white text-ink shadow-card'">
+                      <p v-if="m.autor_id === profile.id" class="mb-0.5 text-[9px] font-bold uppercase opacity-70">{{ destinoMensagemLabel(m.destino) }}</p>
+                      <p v-else class="mb-0.5 text-[9px] font-bold uppercase text-ink-soft">{{ m.autor_nome ?? 'Equipe' }}</p>
+                      <p>{{ m.corpo }}</p>
+                      <p class="mt-1 text-[10px] opacity-70">{{ formatarData(m.criado_em?.slice(0, 10)) }}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <form class="mt-3 space-y-2" @submit.prevent="enviarMensagem">
+                  <select v-model="destinoMensagem" class="w-full rounded-lg border border-ink/15 px-2 py-1.5 text-xs">
+                    <option v-for="d in destinoMensagemOptions" :key="d.value" :value="d.value">Falar com: {{ d.label }}</option>
+                  </select>
+                  <div class="flex gap-2">
+                    <input v-model="novaMensagem" placeholder="Escreva sua mensagem..." class="min-w-0 flex-1 rounded-lg border border-ink/15 px-3 py-2 text-sm" />
+                    <button type="submit" :disabled="enviandoMensagem" class="rounded-full bg-brand px-4 py-2 text-xs font-bold text-white hover:bg-brand-deep disabled:opacity-50">{{ enviandoMensagem ? '...' : 'Enviar' }}</button>
+                  </div>
+                </form>
+              </template>
+            </div>
+          </div>
+
+          <button class="rounded-full border border-ink/15 px-4 py-2 text-xs font-semibold text-ink-soft hover:border-ink/30" @click="logout">Sair</button>
+        </div>
       </div>
 
       <p v-if="carregando" class="mt-8 text-sm text-ink-soft">Carregando...</p>

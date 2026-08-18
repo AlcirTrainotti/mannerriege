@@ -160,11 +160,9 @@ const mensagensNaoLidas = computed(() => mensagens.value.filter((m) => m.autor_i
 
 async function carregarMensagens() {
   carregandoMensagens.value = true
-  const { data } = await supabase
-    .from('mensagens_base')
-    .select('*')
-    .eq('responsavel_id', profile.value.id)
-    .order('criado_em', { ascending: true })
+  // RPC em vez de select direto: agora o canal é compartilhado com o(s)
+  // atleta(s) da família, e a função já devolve o nome de quem escreveu.
+  const { data } = await supabase.rpc('mensagens_canal_base', { p_responsavel_id: profile.value.id })
   mensagens.value = data ?? []
   carregandoMensagens.value = false
 }
@@ -299,6 +297,7 @@ onMounted(() => {
                 <div v-for="m in mensagens" :key="m.id" class="flex" :class="m.autor_id === profile.id ? 'justify-end' : 'justify-start'">
                   <div class="max-w-[85%] rounded-xl px-3 py-2 text-sm" :class="m.autor_id === profile.id ? 'bg-brand text-white' : 'bg-white text-ink shadow-card'">
                     <p v-if="m.autor_id === profile.id" class="mb-0.5 text-[9px] font-bold uppercase opacity-70">{{ destinoMensagemLabel(m.destino) }}</p>
+                    <p v-else class="mb-0.5 text-[9px] font-bold uppercase text-ink-soft">{{ m.autor_nome ?? 'Equipe' }}</p>
                     <p>{{ m.corpo }}</p>
                     <p class="mt-1 text-[10px] opacity-70">{{ formatarData(m.criado_em?.slice(0, 10)) }}</p>
                   </div>
