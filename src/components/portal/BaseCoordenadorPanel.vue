@@ -713,6 +713,11 @@ async function excluirMidia(evento, midia) {
   midiasPorEvento.value[evento.id] = (midiasPorEvento.value[evento.id] ?? []).filter((m) => m.id !== midia.id)
 }
 
+async function alternarAtivoEvento(evento) {
+  const { error } = await supabase.from('eventos_base').update({ ativo: !evento.ativo }).eq('id', evento.id)
+  if (!error) evento.ativo = !evento.ativo
+}
+
 async function excluirEvento(evento) {
   if (!confirm(`Excluir o evento "${evento.titulo}"? Isso remove também a chamada, avaliações e mídias vinculadas a ele.`)) return
   const midias = midiasPorEvento.value[evento.id] ?? []
@@ -974,7 +979,10 @@ async function excluirEvento(evento) {
         <div v-for="e in eventosFiltrados" :key="e.id" class="px-5 py-3.5">
           <div class="flex flex-wrap items-center justify-between gap-3 cursor-pointer" @click="abrirEvento(e)">
             <div>
-              <p class="text-sm font-semibold text-ink">{{ e.titulo }}</p>
+              <p class="flex items-center gap-2 text-sm font-semibold text-ink">
+                {{ e.titulo }}
+                <span :class="['rounded-full px-2.5 py-0.5 text-[10px] font-bold', e.ativo ? 'bg-[#EAF3DE] text-[#27500A]' : 'bg-ink/8 text-ink-soft']">{{ e.ativo ? 'ativo' : 'inativo' }}</span>
+              </p>
               <p class="text-xs text-ink-soft">
                 {{ tipoEventoLabel(e.tipo) }} · {{ formatarDataCurta(e.data) }}
                 <span v-if="e.hora_inicio"> · {{ formatarHora(e.hora_inicio) }}<span v-if="e.hora_fim">–{{ formatarHora(e.hora_fim) }}</span></span>
@@ -985,6 +993,7 @@ async function excluirEvento(evento) {
               </p>
             </div>
             <div class="flex items-center gap-2">
+              <button type="button" class="text-xs font-semibold text-ink-soft hover:text-brand-deep hover:underline" @click.stop="alternarAtivoEvento(e)">{{ e.ativo ? 'desativar' : 'ativar' }}</button>
               <button type="button" class="text-xs font-semibold text-brand-deep hover:underline" @click.stop="editandoEventoId === e.id ? (editandoEventoId = null) : abrirEdicaoEvento(e)">{{ editandoEventoId === e.id ? 'Fechar' : 'Editar' }}</button>
               <button type="button" class="text-xs font-semibold text-brand-deep hover:underline" @click.stop="abrirEvento(e)">{{ eventoExpandidoId === e.id ? 'Fechar' : 'Gerenciar' }}</button>
             </div>
