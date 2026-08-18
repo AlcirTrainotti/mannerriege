@@ -1,6 +1,5 @@
 <script setup>
 import { ref, computed, watch, onMounted, defineAsyncComponent } from 'vue'
-import { createClient } from '@supabase/supabase-js'
 import { supabase } from '../../lib/supabase.js'
 import { useAuth } from '../../lib/useAuth.js'
 import Icon from '../Icon.vue'
@@ -175,7 +174,27 @@ async function salvarAtleta() {
 
   salvandoAtleta.value = true
 
-  // 1. Cria o registro do atleta
+  // 1. Resolve o responsável PRIMEIRO (reaproveita um já cadastrado, ou
+  // cria um novo via Edge Function) — antes de criar o atleta, pra nunca
+  // deixar um atleta órfão no banco se essa etapa falhar no meio.
+  let responsavelId = respEncontrado.value?.id
+
+  if (!responsavelId) {
+    const { data, error: fnError } = await supabase.functions.invoke('criar-responsavel-base', {
+      body: {
+        nome: f.respNome.trim(), telefone: f.respTelefone.trim(),
+        senha: f.respSenha, email: f.respEmail.trim() || null,
+      },
+    })
+    if (fnError || data?.error || !data?.userId) {
+      erroAtleta.value = data?.error ?? fnError?.message ?? 'Erro ao cadastrar o responsável.'
+      salvandoAtleta.value = false
+      return
+    }
+    responsavelId = data.userId
+  }
+
+  // 2. Cria o registro do atleta
   const { data: novoAtleta, error: atletaError } = await supabase
     .from('atletas_base')
     .insert({
@@ -192,39 +211,6 @@ async function salvarAtleta() {
     erroAtleta.value = atletaError.message
     salvandoAtleta.value = false
     return
-  }
-
-  // 2. Resolve o responsável (reaproveita um já cadastrado, ou cria um novo)
-  let responsavelId = respEncontrado.value?.id
-
-  if (!responsavelId) {
-    const url = import.meta.env.VITE_SUPABASE_URL
-    const key = import.meta.env.VITE_SUPABASE_ANON_KEY
-    const clienteTemp = createClient(url, key, { auth: { storageKey: 'signup-temp-responsavel' } })
-
-    const emailParaLogin = f.respEmail.trim() || `${f.respTelefone.replace(/\D/g, '')}@sememail.mannerriege.com.br`
-    const { data, error: signupError } = await clienteTemp.auth.signUp({
-      email: emailParaLogin,
-      password: f.respSenha,
-      options: { data: { nome: f.respNome.trim() } },
-    })
-
-    if (signupError || !data.user) {
-      erroAtleta.value = signupError?.message ?? 'Erro ao cadastrar o responsável.'
-      salvandoAtleta.value = false
-      return
-    }
-    await clienteTemp.auth.signOut()
-
-    await new Promise((r) => setTimeout(r, 800)) // aguarda o trigger criar o profile
-    await supabase.from('profiles').update({ telefone: f.respTelefone.trim() }).eq('id', data.user.id)
-    const { error: roleError } = await supabase.rpc('definir_role_responsavel_base', { p_profile_id: data.user.id })
-    if (roleError) {
-      erroAtleta.value = roleError.message
-      salvandoAtleta.value = false
-      return
-    }
-    responsavelId = data.user.id
   }
 
   // 3. Vincula atleta e responsável
