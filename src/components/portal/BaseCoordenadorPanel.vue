@@ -277,6 +277,10 @@ function abrirEdicaoAtleta(atleta) {
     escola: atleta.escola ?? '', posicao: atleta.posicao ?? '',
     categoria_id: atleta.categoria_id, status: atleta.status,
     observacoes_gerais: atleta.observacoes_gerais ?? '',
+    contatos: contatosDoAtleta(atleta).map((c) => ({
+      responsavel_id: c.responsavel_id,
+      nome: c.responsavel_nome ?? '', telefone: c.telefone ?? '', email: c.email ?? '', parentesco: c.parentesco ?? '',
+    })),
   }
 }
 
@@ -295,8 +299,8 @@ async function salvarEdicaoAtleta(atleta) {
     categoria_id: f.categoria_id, status: f.status,
     observacoes_gerais: f.observacoes_gerais.trim() || null,
   }).eq('id', atleta.id)
-  salvandoEdicaoAtleta.value = false
   if (error) {
+    salvandoEdicaoAtleta.value = false
     alert('Não foi possível salvar: ' + error.message)
     return
   }
@@ -306,6 +310,24 @@ async function salvarEdicaoAtleta(atleta) {
     categoria_id: f.categoria_id, status: f.status,
     observacoes_gerais: f.observacoes_gerais.trim() || null,
   })
+
+  // Atualiza o(s) contato(s) do(s) responsável(is), se houver
+  for (const c of f.contatos) {
+    const { error: contatoError } = await supabase.rpc('atualizar_contato_responsavel_base', {
+      p_atleta_id: atleta.id, p_responsavel_id: c.responsavel_id,
+      p_nome: c.nome, p_telefone: c.telefone, p_email: c.email, p_parentesco: c.parentesco,
+    })
+    if (contatoError) {
+      alert(`Dados do atleta salvos, mas não consegui atualizar o contato de ${c.nome}: ${contatoError.message}`)
+    }
+  }
+  contatosPorAtleta.value[atleta.id] = f.contatos.map((c) => ({
+    atleta_id: atleta.id, responsavel_id: c.responsavel_id,
+    responsavel_nome: c.nome.trim() || c.nome, telefone: c.telefone.trim() || null, email: c.email.trim() || null,
+    parentesco: c.parentesco.trim() || null,
+  }))
+
+  salvandoEdicaoAtleta.value = false
   editandoAtletaId.value = null
 }
 
@@ -543,9 +565,34 @@ const participantesPorEvento = ref({}) // evento_id -> { atleta_id -> row }
 const midiasPorEvento = ref({}) // evento_id -> [row]
 const enviandoMidia = ref(false)
 
+// A lista de chamada de um evento é a categoria dele (conveniência, pra
+// treino de categoria fechada não precisar adicionar um por um) somada a
+// qualquer atleta explicitamente adicionado ao evento (evento_participantes_base) —
+// útil pra convidados de outra categoria, ou eventos sem categoria fixa.
 function atletasDoEvento(evento) {
-  if (!evento.categoria_id) return atletas.value
-  return atletas.value.filter((a) => a.categoria_id === evento.categoria_id)
+  const daCategoria = evento.categoria_id ? atletas.value.filter((a) => a.categoria_id === evento.categoria_id) : atletas.value
+  const idsExtras = Object.keys(participantesPorEvento.value[evento.id] ?? {})
+  const idsDaCategoria = new Set(daCategoria.map((a) => a.id))
+  const extras = atletas.value.filter((a) => idsExtras.includes(a.id) && !idsDaCategoria.has(a.id))
+  return [...daCategoria, ...extras]
+}
+
+function atletasForaDoEvento(evento) {
+  const idsNoEvento = new Set(atletasDoEvento(evento).map((a) => a.id))
+  return atletas.value.filter((a) => !idsNoEvento.has(a.id))
+}
+
+async function adicionarAtletaAoEvento(evento, atletaId) {
+  if (!atletaId) return
+  await salvarParticipante(evento, atletaId, {})
+}
+
+// Cadastrar um atleta novo direto a partir do evento — troca pra aba
+// Atletas, abre o formulário de cadastro já com este evento marcado.
+async function irParaCadastroNovoAtleta(evento) {
+  aba.value = 'atletas'
+  await abrirFormAtleta()
+  formAtleta.value.eventosSelecionados = [evento.id]
 }
 
 async function abrirEvento(evento) {
@@ -803,6 +850,17 @@ async function excluirEvento(evento) {
               <input v-model="formEdicaoAtleta.escola" placeholder="Escola" class="rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm" />
             </div>
             <textarea v-model="formEdicaoAtleta.observacoes_gerais" placeholder="Observações gerais (evite linguagem clínica/diagnóstica)" rows="2" class="w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm"></textarea>
+
+            <div v-if="formEdicaoAtleta.contatos.length" class="space-y-3 border-t border-ink/10 pt-3">
+              <p class="font-mono-label text-[9px] font-bold text-ink-soft">CONTATO DO(S) RESPONSÁVEL(IS)</p>
+              <div v-for="c in formEdicaoAtleta.contatos" :key="c.responsavel_id" class="grid gap-2 sm:grid-cols-2">
+                <input v-model="c.nome" placeholder="Nome do responsável" class="rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm sm:col-span-2" />
+                <input v-model="c.telefone" placeholder="WhatsApp" class="rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm" />
+                <input v-model="c.email" placeholder="E-mail" class="rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm" />
+                <input v-model="c.parentesco" placeholder="Parentesco (ex: mãe, pai, avó)" class="rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm sm:col-span-2" />
+              </div>
+            </div>
+
             <div class="flex gap-2">
               <button type="submit" :disabled="salvandoEdicaoAtleta" class="rounded-full bg-brand px-4 py-2 text-xs font-bold text-white hover:bg-brand-deep disabled:opacity-50">{{ salvandoEdicaoAtleta ? 'Salvando...' : 'Salvar' }}</button>
               <button type="button" class="rounded-full border border-ink/15 px-4 py-2 text-xs font-semibold text-ink-soft" @click="editandoAtletaId = null">Cancelar</button>
@@ -901,7 +959,19 @@ async function excluirEvento(evento) {
             <p v-if="e.plano_atividades" class="text-xs text-ink"><strong>Atividades:</strong> {{ e.plano_atividades }}</p>
 
             <div>
-              <p class="font-mono-label text-[9px] font-bold text-ink-soft">CHAMADA E DESEMPENHO</p>
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <p class="font-mono-label text-[9px] font-bold text-ink-soft">CHAMADA E DESEMPENHO</p>
+                <div class="flex flex-wrap items-center gap-2">
+                  <select
+                    class="rounded-lg border border-ink/15 bg-white px-2 py-1.5 text-xs"
+                    @change="(ev) => { adicionarAtletaAoEvento(e, ev.target.value); ev.target.value = '' }"
+                  >
+                    <option value="">+ Adicionar atleta já cadastrado...</option>
+                    <option v-for="a in atletasForaDoEvento(e)" :key="a.id" :value="a.id">{{ a.nome }} — {{ nomeCategoria(categoriaDoAtleta(a)) }}</option>
+                  </select>
+                  <button type="button" class="text-xs font-semibold text-brand-deep hover:underline" @click="irParaCadastroNovoAtleta(e)">+ Cadastrar novo atleta</button>
+                </div>
+              </div>
               <div class="mt-2 divide-y divide-ink/8 rounded-xl bg-white">
                 <div v-for="a in atletasDoEvento(e)" :key="a.id" class="flex flex-wrap items-center gap-2 px-4 py-2.5">
                   <span class="min-w-[9rem] flex-1 text-sm text-ink">{{ a.nome }}</span>
