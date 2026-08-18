@@ -179,7 +179,14 @@ async function adicionarAssociado() {
 async function carregar() {
   loadingList.value = true
   loadError.value = ''
-  const { data, error } = await supabase.from('profiles').select('*').order('nome')
+  // Só papéis "do quadro social" — perfis da equipe de Categorias de Base
+  // (professor_base, coordenador_base, responsavel_base, atleta_base) têm
+  // sua própria tela e não devem aparecer aqui.
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .in('role', roleOptions.map((r) => r.value))
+    .order('nome')
   if (error) {
     loadError.value = error.message
   } else {
