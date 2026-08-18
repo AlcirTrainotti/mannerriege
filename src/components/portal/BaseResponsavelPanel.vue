@@ -10,7 +10,7 @@ import { formatarCompetencia } from '../../data/financeiro.js'
 import {
   statusAtletaLabel, statusAtletaClasses, idadeAtual, nomeCategoria,
   mensalidadeBaseStatusLabel, mensalidadeBaseStatusClasses,
-  posicaoLabel, tipoEventoLabel,
+  posicaoLabel, tipoEventoLabel, tipoAvaliacaoLabel, statusFinanceiroBaseClasses,
 } from '../../data/base.js'
 
 const { profile, logout } = useAuth()
@@ -33,20 +33,24 @@ async function carregarMeusAtletas() {
     return
   }
 
-  const [{ data: atletas }, { data: categorias }, { data: planosVigentes }, { data: mensalidades }, { data: eventosParticipados }] = await Promise.all([
+  const [{ data: atletas }, { data: categorias }, { data: planosVigentes }, { data: mensalidades }, { data: eventosParticipados }, { data: avaliacoes }, { data: matriculas }] = await Promise.all([
     supabase.from('atletas_base').select('*').in('id', atletaIds),
     supabase.from('categorias_base').select('*'),
     supabase.from('atleta_plano').select('atleta_id, plano:planos_base(*)').in('atleta_id', atletaIds).is('data_fim', null),
     supabase.from('mensalidades_base').select('*').in('atleta_id', atletaIds).order('competencia', { ascending: false }),
     supabase.from('evento_participantes_base').select('*, evento:eventos_base(*)').in('atleta_id', atletaIds).order('criado_em', { ascending: false }),
+    supabase.from('avaliacoes_atleta_base').select('*').in('atleta_id', atletaIds).order('data', { ascending: false }),
+    supabase.from('matriculas_base').select('*').in('atleta_id', atletaIds),
   ])
 
   meusAtletas.value = (atletas ?? []).map((a) => ({
     ...a,
     categoria: (categorias ?? []).find((c) => c.id === a.categoria_id) ?? null,
     plano: (planosVigentes ?? []).find((p) => p.atleta_id === a.id)?.plano ?? null,
-    ultimaMensalidade: (mensalidades ?? []).find((m) => m.atleta_id === a.id) ?? null,
+    mensalidades: (mensalidades ?? []).filter((m) => m.atleta_id === a.id),
+    matricula: (matriculas ?? []).find((m) => m.atleta_id === a.id) ?? null,
     historicoEventos: (eventosParticipados ?? []).filter((p) => p.atleta_id === a.id && p.evento).slice(0, 8),
+    avaliacoes: (avaliacoes ?? []).filter((v) => v.atleta_id === a.id),
     editando: false,
     formEdicao: { nome: a.nome, escola: a.escola ?? '', data_nascimento: a.data_nascimento },
     criandoLogin: false,
@@ -55,6 +59,45 @@ async function carregarMeusAtletas() {
   }))
 
   carregando.value = false
+}
+
+// ================================================================
+// Mensagens com a equipe do projeto (um canal por família)
+// ================================================================
+const mensagens = ref([])
+const novaMensagem = ref('')
+const enviandoMensagem = ref(false)
+const carregandoMensagens = ref(true)
+
+async function carregarMensagens() {
+  carregandoMensagens.value = true
+  const { data } = await supabase
+    .from('mensagens_base')
+    .select('*')
+    .eq('responsavel_id', profile.value.id)
+    .order('criado_em', { ascending: true })
+  mensagens.value = data ?? []
+  carregandoMensagens.value = false
+
+  // Marca como lidas as mensagens que a equipe mandou
+  const naoLidas = mensagens.value.filter((m) => m.autor_id !== profile.value.id && !m.lida).map((m) => m.id)
+  if (naoLidas.length) {
+    await supabase.from('mensagens_base').update({ lida: true }).in('id', naoLidas)
+    mensagens.value.forEach((m) => { if (naoLidas.includes(m.id)) m.lida = true })
+  }
+}
+
+async function enviarMensagem() {
+  if (!novaMensagem.value.trim()) return
+  enviandoMensagem.value = true
+  const { data, error } = await supabase.from('mensagens_base').insert({
+    responsavel_id: profile.value.id, autor_id: profile.value.id, corpo: novaMensagem.value.trim(),
+  }).select().single()
+  enviandoMensagem.value = false
+  if (!error) {
+    mensagens.value.push(data)
+    novaMensagem.value = ''
+  }
 }
 
 function iniciarEdicao(atleta) {
@@ -127,7 +170,10 @@ async function criarLoginAtleta(atleta) {
   atleta.senhaLogin = ''
 }
 
-onMounted(carregarMeusAtletas)
+onMounted(() => {
+  carregarMeusAtletas()
+  carregarMensagens()
+})
 </script>
 
 <template>
@@ -200,18 +246,46 @@ onMounted(carregarMeusAtletas)
             </form>
           </div>
 
-          <!-- Plano / mensalidade -->
-          <div class="mt-4 flex items-center justify-between rounded-xl bg-paper-dim p-4">
-            <div>
-              <p class="font-mono-label text-[9px] font-bold text-ink-soft">PLANO ATUAL</p>
-              <p class="mt-1 text-sm font-semibold text-ink">{{ atleta.plano?.nome ?? '—' }}</p>
-              <p v-if="atleta.plano" class="text-xs text-ink-soft">{{ brl(atleta.plano.valor_mensal) }}/mês</p>
+          <!-- Plano / mensalidades -->
+          <div class="mt-4 rounded-xl bg-paper-dim p-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="font-mono-label text-[9px] font-bold text-ink-soft">PLANO ATUAL</p>
+                <p class="mt-1 text-sm font-semibold text-ink">{{ atleta.plano?.nome ?? '—' }}</p>
+                <p v-if="atleta.plano" class="text-xs text-ink-soft">{{ brl(atleta.plano.valor_mensal) }}/mês</p>
+              </div>
+              <div v-if="atleta.matricula" class="text-right">
+                <p class="text-xs text-ink-soft">Taxa de matrícula</p>
+                <span :class="['mt-1 inline-block rounded-full px-3 py-1 text-xs font-semibold', statusFinanceiroBaseClasses(atleta.matricula.status)]">
+                  {{ atleta.matricula.status === 'isento' ? 'isenta' : atleta.matricula.status }} · {{ brl(atleta.matricula.valor) }}
+                </span>
+              </div>
             </div>
-            <div v-if="atleta.ultimaMensalidade" class="text-right">
-              <p class="text-xs text-ink-soft">{{ formatarCompetencia(atleta.ultimaMensalidade.competencia) }}</p>
-              <span :class="['mt-1 inline-block rounded-full px-3 py-1 text-xs font-semibold', mensalidadeBaseStatusClasses(atleta.ultimaMensalidade.status)]">
-                {{ mensalidadeBaseStatusLabel(atleta.ultimaMensalidade.status) }}
-              </span>
+
+            <div v-if="atleta.mensalidades.length" class="mt-3 space-y-1.5 border-t border-ink/10 pt-3">
+              <p class="font-mono-label text-[9px] font-bold text-ink-soft">MENSALIDADES</p>
+              <div v-for="m in atleta.mensalidades" :key="m.id" class="flex items-center justify-between text-xs">
+                <span class="text-ink-soft">{{ formatarCompetencia(m.competencia) }}</span>
+                <span class="flex items-center gap-2">
+                  <span class="text-ink">{{ brl(m.valor) }}</span>
+                  <span :class="['rounded-full px-2.5 py-0.5 text-[10px] font-semibold', mensalidadeBaseStatusClasses(m.status)]">{{ mensalidadeBaseStatusLabel(m.status) }}</span>
+                </span>
+              </div>
+              <p class="pt-1 text-[11px] text-ink-soft">Mensalidade em aberto? Fale com a coordenação pelas mensagens, aqui embaixo.</p>
+            </div>
+          </div>
+
+          <!-- Avaliações periódicas -->
+          <div v-if="atleta.avaliacoes.length" class="mt-4 rounded-xl bg-paper-dim p-4">
+            <p class="font-mono-label text-[9px] font-bold text-ink-soft">DESEMPENHO — AVALIAÇÕES PERIÓDICAS</p>
+            <div class="mt-2 divide-y divide-ink/8">
+              <div v-for="v in atleta.avaliacoes" :key="v.id" class="py-2 text-xs">
+                <div class="flex items-center justify-between">
+                  <span class="font-semibold text-ink">{{ tipoAvaliacaoLabel(v.tipo) }}</span>
+                  <span class="text-ink-soft">{{ formatarDataCurta(v.data) }}<span v-if="v.nota !== null"> · nota {{ v.nota }}</span></span>
+                </div>
+                <p v-if="v.observacoes" class="mt-0.5 text-ink-soft">{{ v.observacoes }}</p>
+              </div>
             </div>
           </div>
 
@@ -247,24 +321,53 @@ onMounted(carregarMeusAtletas)
             </div>
           </div>
 
-          <!-- Histórico de eventos -->
+          <!-- Histórico de eventos (frequência + o que foi trabalhado) -->
           <div v-if="atleta.historicoEventos.length" class="mt-4 rounded-xl bg-paper-dim p-4">
-            <p class="font-mono-label text-[9px] font-bold text-ink-soft">HISTÓRICO RECENTE</p>
+            <p class="font-mono-label text-[9px] font-bold text-ink-soft">FREQUÊNCIA E AULAS RECENTES</p>
             <div class="mt-2 divide-y divide-ink/8">
-              <div v-for="p in atleta.historicoEventos" :key="p.id" class="flex items-center justify-between gap-2 py-2 text-xs">
-                <div>
-                  <p class="text-ink">{{ p.evento.titulo }}</p>
-                  <p class="text-ink-soft">{{ tipoEventoLabel(p.evento.tipo) }} · {{ formatarDataCurta(p.evento.data) }}</p>
+              <div v-for="p in atleta.historicoEventos" :key="p.id" class="py-2 text-xs">
+                <div class="flex items-center justify-between gap-2">
+                  <div>
+                    <p class="text-ink">{{ p.evento.titulo }}</p>
+                    <p class="text-ink-soft">{{ tipoEventoLabel(p.evento.tipo) }} · {{ formatarDataCurta(p.evento.data) }}</p>
+                  </div>
+                  <div class="text-right">
+                    <p v-if="p.presente !== null" :class="p.presente ? 'text-[#27500A]' : 'text-brand-deep'">{{ p.presente ? 'presente' : 'ausente' }}</p>
+                    <p v-if="p.desempenho_nota !== null" class="text-ink-soft">nota {{ p.desempenho_nota }}</p>
+                  </div>
                 </div>
-                <div class="text-right">
-                  <p v-if="p.presente !== null" :class="p.presente ? 'text-[#27500A]' : 'text-brand-deep'">{{ p.presente ? 'presente' : 'ausente' }}</p>
-                  <p v-if="p.desempenho_nota !== null" class="text-ink-soft">nota {{ p.desempenho_nota }}</p>
-                </div>
+                <p v-if="p.evento.plano_atividades" class="mt-1 text-ink-soft"><strong class="text-ink">O que foi feito:</strong> {{ p.evento.plano_atividades }}</p>
+                <p v-if="p.desempenho_obs" class="mt-0.5 text-ink-soft"><strong class="text-ink">Observação do professor:</strong> {{ p.desempenho_obs }}</p>
               </div>
             </div>
           </div>
 
         </div>
+      </div>
+
+      <!-- Mensagens com a equipe do projeto -->
+      <div v-if="!carregando" class="mt-6 rounded-2xl bg-white p-6 shadow-card">
+        <div class="flex items-center gap-2">
+          <Icon name="mail" class="h-4 w-4 text-ink-soft" />
+          <p class="font-mono-label text-[9px] font-bold text-ink-soft">MENSAGENS COM A EQUIPE DO PROJETO</p>
+        </div>
+
+        <p v-if="carregandoMensagens" class="mt-3 text-sm text-ink-soft">Carregando...</p>
+
+        <div v-else class="mt-3 max-h-80 space-y-2 overflow-y-auto rounded-xl bg-paper-dim p-3">
+          <p v-if="!mensagens.length" class="text-xs text-ink-soft">Nenhuma mensagem ainda — escreva pra coordenação aqui embaixo.</p>
+          <div v-for="m in mensagens" :key="m.id" class="flex" :class="m.autor_id === profile.id ? 'justify-end' : 'justify-start'">
+            <div class="max-w-[80%] rounded-xl px-3 py-2 text-sm" :class="m.autor_id === profile.id ? 'bg-brand text-white' : 'bg-white text-ink shadow-card'">
+              <p>{{ m.corpo }}</p>
+              <p class="mt-1 text-[10px] opacity-70">{{ formatarData(m.criado_em?.slice(0, 10)) }}</p>
+            </div>
+          </div>
+        </div>
+
+        <form class="mt-3 flex gap-2" @submit.prevent="enviarMensagem">
+          <input v-model="novaMensagem" placeholder="Escreva sua mensagem..." class="min-w-0 flex-1 rounded-lg border border-ink/15 px-3 py-2 text-sm" />
+          <button type="submit" :disabled="enviandoMensagem" class="rounded-full bg-brand px-4 py-2 text-xs font-bold text-white hover:bg-brand-deep disabled:opacity-50">{{ enviandoMensagem ? 'Enviando...' : 'Enviar' }}</button>
+        </form>
       </div>
 
   </div>

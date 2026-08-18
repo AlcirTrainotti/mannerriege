@@ -9,6 +9,7 @@ const AvaliacoesAtletaBase = defineAsyncComponent(() => import('./AvaliacoesAtle
 const ProfissionaisBase = defineAsyncComponent(() => import('./ProfissionaisBase.vue'))
 const FinanceiroBasePanel = defineAsyncComponent(() => import('./FinanceiroBasePanel.vue'))
 const InscricoesBase = defineAsyncComponent(() => import('./InscricoesBase.vue'))
+const MensagensBase = defineAsyncComponent(() => import('./MensagensBase.vue'))
 import { brl } from '../../data/campeonatos.js'
 import { formatarDataCurta } from '../../data/campeonatos.js'
 import {
@@ -33,12 +34,12 @@ const aba = ref('atletas')
 // ================================================================
 const gruposNav = [
   { key: 'eventos', label: 'Eventos', abas: ['eventos', 'inscricoes'] },
-  { key: 'operacao', label: 'Operação', abas: ['times', 'desempenho'] },
+  { key: 'operacao', label: 'Operação', abas: ['times', 'desempenho', 'mensagens'] },
   { key: 'administrativo', label: 'Administrativo', abas: ['atletas', 'categorias', 'planos', 'quadras', 'profissionais', 'financeiro'] },
 ]
 const tituloAba = {
   eventos: 'Eventos', inscricoes: 'Gestão de inscrições',
-  times: 'Times', desempenho: 'Gestão de desempenho',
+  times: 'Times', desempenho: 'Gestão de desempenho', mensagens: 'Mensagens',
   atletas: 'Atletas', categorias: 'Categorias', planos: 'Planos', quadras: 'Quadras',
   profissionais: 'Profissionais', financeiro: 'Financeiro',
 }
@@ -1233,6 +1234,9 @@ async function excluirEvento(evento) {
 
     <!-- ===== DESEMPENHO (Operação) ===== -->
     <AvaliacoesAtletaBase v-else-if="aba === 'desempenho'" class="mt-6" :embedded="true" />
+
+    <!-- ===== MENSAGENS (Operação) ===== -->
+    <MensagensBase v-else-if="aba === 'mensagens'" class="mt-6" :embedded="true" />
 
     <!-- ===== PROFISSIONAIS (Administrativo) ===== -->
     <ProfissionaisBase v-else-if="aba === 'profissionais'" class="mt-6" :embedded="true" />
