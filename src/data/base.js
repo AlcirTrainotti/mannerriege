@@ -112,3 +112,62 @@ export function formatarHora(hhmmss) {
   if (!hhmmss) return ''
   return hhmmss.slice(0, 5)
 }
+
+// --- Profissionais do projeto ---
+export const cargoProfissionalOptions = [
+  { value: 'coordenador', label: 'Coordenador(a)' },
+  { value: 'tecnico', label: 'Técnico(a)' },
+  { value: 'colaborador', label: 'Colaborador(a)' },
+]
+
+export function cargoProfissionalLabel(v) {
+  return cargoProfissionalOptions.find((c) => c.value === v)?.label ?? v
+}
+
+export function cargosProfissionalLabel(cargos) {
+  if (!cargos || !cargos.length) return '—'
+  return cargos.map(cargoProfissionalLabel).join(', ')
+}
+
+// --- Avaliações periódicas do atleta ---
+export const tipoAvaliacaoOptions = [
+  { value: 'fisico', label: 'Físico' },
+  { value: 'tecnico', label: 'Técnico' },
+  { value: 'psicologico', label: 'Psicológico' },
+]
+
+export function tipoAvaliacaoLabel(v) {
+  return tipoAvaliacaoOptions.find((t) => t.value === v)?.label ?? v
+}
+
+// --- Financeiro da Base (separado do financeiro do Master) ---
+export const tipoReceitaBaseOptions = [
+  { value: 'matricula', label: 'Taxa de matrícula' },
+  { value: 'mensalidade', label: 'Mensalidade' },
+  { value: 'doacao', label: 'Doação' },
+  { value: 'patrocinio', label: 'Patrocínio' },
+  { value: 'outro', label: 'Outro' },
+]
+
+export function tipoReceitaBaseLabel(v) {
+  return tipoReceitaBaseOptions.find((t) => t.value === v)?.label ?? v
+}
+
+export const categoriaDespesaBaseOptions = [
+  { value: 'material', label: 'Material esportivo' },
+  { value: 'quadra', label: 'Locação de quadra' },
+  { value: 'transporte', label: 'Transporte' },
+  { value: 'uniforme', label: 'Uniforme' },
+  { value: 'alimentacao', label: 'Alimentação' },
+  { value: 'evento', label: 'Evento' },
+  { value: 'outro', label: 'Outro' },
+]
+
+export function categoriaDespesaBaseLabel(v) {
+  return categoriaDespesaBaseOptions.find((c) => c.value === v)?.label ?? v
+}
+
+export function statusFinanceiroBaseClasses(status) {
+  if (status === 'pago' || status === 'recebido') return 'bg-[#EAF3DE] text-[#27500A]'
+  return 'bg-brand-soft text-brand-deep' // pendente
+}

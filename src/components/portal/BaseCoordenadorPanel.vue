@@ -4,6 +4,11 @@ import { supabase } from '../../lib/supabase.js'
 import { useAuth } from '../../lib/useAuth.js'
 import Icon from '../Icon.vue'
 const Quadras = defineAsyncComponent(() => import('./Quadras.vue'))
+const TimesBase = defineAsyncComponent(() => import('./TimesBase.vue'))
+const AvaliacoesAtletaBase = defineAsyncComponent(() => import('./AvaliacoesAtletaBase.vue'))
+const ProfissionaisBase = defineAsyncComponent(() => import('./ProfissionaisBase.vue'))
+const FinanceiroBasePanel = defineAsyncComponent(() => import('./FinanceiroBasePanel.vue'))
+const InscricoesBase = defineAsyncComponent(() => import('./InscricoesBase.vue'))
 import { brl } from '../../data/campeonatos.js'
 import { formatarDataCurta } from '../../data/campeonatos.js'
 import {
@@ -22,6 +27,27 @@ const props = defineProps({
 
 const { profile, logout } = useAuth()
 const aba = ref('atletas')
+
+// ================================================================
+// Navegação em 2 níveis: Eventos / Operação / Administrativo
+// ================================================================
+const gruposNav = [
+  { key: 'eventos', label: 'Eventos', abas: ['eventos', 'inscricoes'] },
+  { key: 'operacao', label: 'Operação', abas: ['times', 'desempenho'] },
+  { key: 'administrativo', label: 'Administrativo', abas: ['atletas', 'categorias', 'planos', 'quadras', 'profissionais', 'financeiro'] },
+]
+const tituloAba = {
+  eventos: 'Eventos', inscricoes: 'Gestão de inscrições',
+  times: 'Times', desempenho: 'Gestão de desempenho',
+  atletas: 'Atletas', categorias: 'Categorias', planos: 'Planos', quadras: 'Quadras',
+  profissionais: 'Profissionais', financeiro: 'Financeiro',
+}
+const grupoAtivo = computed(() => gruposNav.find((g) => g.abas.includes(aba.value))?.key ?? 'administrativo')
+
+function irParaAba(novaAba) {
+  aba.value = novaAba
+  if (novaAba === 'eventos') carregarEventos()
+}
 
 // ================================================================
 // Dados compartilhados entre as abas
@@ -735,9 +761,7 @@ async function excluirEvento(evento) {
     <div v-if="!embedded" class="flex flex-wrap items-center justify-between gap-4">
       <div>
         <p class="font-mono-label text-[11px] font-bold text-brand-deep">Coordenação · Categorias de Base</p>
-        <h1 class="mt-1 font-display text-3xl font-extrabold text-ink">
-          {{ { atletas: 'Atletas', categorias: 'Categorias', planos: 'Planos', eventos: 'Eventos', quadras: 'Quadras' }[aba] }}
-        </h1>
+        <h1 class="mt-1 font-display text-3xl font-extrabold text-ink">{{ tituloAba[aba] }}</h1>
       </div>
       <div class="flex items-center gap-3">
         <span class="text-xs text-ink-soft">Logado como {{ profile?.nome }}</span>
@@ -746,11 +770,21 @@ async function excluirEvento(evento) {
     </div>
 
     <div :class="embedded ? 'flex flex-wrap gap-2' : 'mt-6 flex flex-wrap gap-2'">
-      <button class="rounded-full px-4 py-2 text-xs font-semibold transition-colors" :class="aba === 'atletas' ? 'bg-ink text-white' : 'bg-paper-dim text-ink-soft hover:bg-ink/10'" @click="aba = 'atletas'">Atletas</button>
-      <button class="rounded-full px-4 py-2 text-xs font-semibold transition-colors" :class="aba === 'eventos' ? 'bg-ink text-white' : 'bg-paper-dim text-ink-soft hover:bg-ink/10'" @click="aba = 'eventos'; carregarEventos()">Eventos</button>
-      <button class="rounded-full px-4 py-2 text-xs font-semibold transition-colors" :class="aba === 'categorias' ? 'bg-ink text-white' : 'bg-paper-dim text-ink-soft hover:bg-ink/10'" @click="aba = 'categorias'">Categorias</button>
-      <button class="rounded-full px-4 py-2 text-xs font-semibold transition-colors" :class="aba === 'planos' ? 'bg-ink text-white' : 'bg-paper-dim text-ink-soft hover:bg-ink/10'" @click="aba = 'planos'">Planos</button>
-      <button class="rounded-full px-4 py-2 text-xs font-semibold transition-colors" :class="aba === 'quadras' ? 'bg-ink text-white' : 'bg-paper-dim text-ink-soft hover:bg-ink/10'" @click="aba = 'quadras'">Quadras</button>
+      <button
+        v-for="g in gruposNav" :key="g.key"
+        class="rounded-full px-4 py-2 text-xs font-bold transition-colors"
+        :class="grupoAtivo === g.key ? 'bg-brand-deep text-white' : 'bg-paper-dim text-ink hover:bg-ink/10'"
+        @click="irParaAba(g.abas.includes(aba) ? aba : g.abas[0])"
+      >{{ g.label }}</button>
+    </div>
+
+    <div class="mt-2 flex flex-wrap gap-2">
+      <button
+        v-for="a in gruposNav.find((g) => g.key === grupoAtivo).abas" :key="a"
+        class="rounded-full px-3.5 py-1.5 text-[11px] font-semibold transition-colors"
+        :class="aba === a ? 'bg-ink text-white' : 'bg-paper-dim/60 text-ink-soft hover:bg-ink/10'"
+        @click="irParaAba(a)"
+      >{{ tituloAba[a] }}</button>
     </div>
 
     <p v-if="carregando" class="mt-8 text-sm text-ink-soft">Carregando...</p>
@@ -1190,6 +1224,21 @@ async function excluirEvento(evento) {
 
     <!-- ===== QUADRAS ===== -->
     <Quadras v-else-if="aba === 'quadras'" class="mt-6" :embedded="true" />
+
+    <!-- ===== INSCRIÇÕES (Eventos) ===== -->
+    <InscricoesBase v-else-if="aba === 'inscricoes'" class="mt-6" :embedded="true" />
+
+    <!-- ===== TIMES (Operação) ===== -->
+    <TimesBase v-else-if="aba === 'times'" class="mt-6" :embedded="true" />
+
+    <!-- ===== DESEMPENHO (Operação) ===== -->
+    <AvaliacoesAtletaBase v-else-if="aba === 'desempenho'" class="mt-6" :embedded="true" />
+
+    <!-- ===== PROFISSIONAIS (Administrativo) ===== -->
+    <ProfissionaisBase v-else-if="aba === 'profissionais'" class="mt-6" :embedded="true" />
+
+    <!-- ===== FINANCEIRO (Administrativo) ===== -->
+    <FinanceiroBasePanel v-else-if="aba === 'financeiro'" class="mt-6" :embedded="true" />
 
   </div>
 </template>
