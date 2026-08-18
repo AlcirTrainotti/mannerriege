@@ -80,13 +80,13 @@ async function carregarMeusAtletas() {
 // atleta, é do próprio profile, por isso fica separado dos cards
 // ================================================================
 const mostrarMeusDados = ref(false)
-const formMeusDados = ref({ telefone: profile.value?.telefone ?? '', email: profile.value?.email ?? '' })
+const formMeusDados = ref({ nome: profile.value?.nome ?? '', telefone: profile.value?.telefone ?? '', email: profile.value?.email ?? '' })
 const salvandoMeusDados = ref(false)
 const erroMeusDados = ref('')
 const sucessoMeusDados = ref('')
 
 function abrirMeusDados() {
-  formMeusDados.value = { telefone: profile.value?.telefone ?? '', email: profile.value?.email ?? '' }
+  formMeusDados.value = { nome: profile.value?.nome ?? '', telefone: profile.value?.telefone ?? '', email: profile.value?.email ?? '' }
   erroMeusDados.value = ''
   sucessoMeusDados.value = ''
   mostrarMeusDados.value = !mostrarMeusDados.value
@@ -95,18 +95,27 @@ function abrirMeusDados() {
 async function salvarMeusDados() {
   erroMeusDados.value = ''
   sucessoMeusDados.value = ''
+  if (!formMeusDados.value.nome.trim()) {
+    erroMeusDados.value = 'O nome não pode ficar em branco.'
+    return
+  }
   salvandoMeusDados.value = true
   const { error } = await supabase.rpc('atualizar_meu_contato_responsavel_base', {
-    p_telefone: formMeusDados.value.telefone, p_email: formMeusDados.value.email,
+    p_nome: formMeusDados.value.nome, p_telefone: formMeusDados.value.telefone, p_email: formMeusDados.value.email,
   })
   salvandoMeusDados.value = false
   if (error) {
     erroMeusDados.value = error.message
     return
   }
+  profile.value.nome = formMeusDados.value.nome
   profile.value.telefone = formMeusDados.value.telefone
   profile.value.email = formMeusDados.value.email
   sucessoMeusDados.value = 'Dados atualizados.'
+}
+
+function aoAtualizarMinhaFoto(url) {
+  profile.value.avatar_url = url
 }
 
 const novaSenha = ref('')
@@ -310,20 +319,33 @@ onMounted(() => {
         </div>
       </div>
 
-      <!-- Meus dados de contato -->
+      <!-- Meu perfil -->
       <div class="mt-4 rounded-2xl bg-white p-5 shadow-card">
         <div class="flex items-center justify-between">
-          <p class="font-mono-label text-[9px] font-bold text-ink-soft">MEUS DADOS DE CONTATO</p>
-          <button class="text-xs font-semibold text-brand-deep hover:underline" @click="abrirMeusDados">{{ mostrarMeusDados ? 'Fechar' : 'Editar telefone, e-mail e senha' }}</button>
+          <p class="font-mono-label text-[9px] font-bold text-ink-soft">MEU PERFIL</p>
+          <button class="text-xs font-semibold text-brand-deep hover:underline" @click="abrirMeusDados">{{ mostrarMeusDados ? 'Fechar' : 'Editar foto, nome, contato e senha' }}</button>
         </div>
-        <p v-if="!mostrarMeusDados" class="mt-2 text-sm text-ink-soft">{{ profile?.telefone || '—' }} · {{ profile?.email }}</p>
+
+        <div v-if="!mostrarMeusDados" class="mt-3 flex items-center gap-3">
+          <AvatarUpload :profile-id="profile.id" :avatar-url="profile?.avatar_url" :nome="profile?.nome" size="sm" />
+          <div>
+            <p class="text-sm font-semibold text-ink">{{ profile?.nome }}</p>
+            <p class="text-xs text-ink-soft">{{ profile?.telefone || '—' }} · {{ profile?.email }}</p>
+          </div>
+        </div>
 
         <div v-else class="mt-3 space-y-4">
+          <div class="flex items-center gap-3">
+            <AvatarUpload :profile-id="profile.id" :avatar-url="profile?.avatar_url" :nome="profile?.nome" size="md" editable @update:avatar-url="aoAtualizarMinhaFoto" />
+            <p class="text-xs text-ink-soft">Clique na foto pra trocar.</p>
+          </div>
+
           <form class="grid gap-3 sm:grid-cols-2" @submit.prevent="salvarMeusDados">
+            <input v-model="formMeusDados.nome" placeholder="Seu nome" required class="rounded-lg border border-ink/15 px-3 py-2 text-sm sm:col-span-2" />
             <input v-model="formMeusDados.telefone" placeholder="Telefone / WhatsApp" class="rounded-lg border border-ink/15 px-3 py-2 text-sm" />
             <input v-model="formMeusDados.email" type="email" placeholder="E-mail" class="rounded-lg border border-ink/15 px-3 py-2 text-sm" />
             <div class="sm:col-span-2 flex items-center gap-3">
-              <button type="submit" :disabled="salvandoMeusDados" class="rounded-full bg-brand px-4 py-2 text-xs font-bold text-white hover:bg-brand-deep disabled:opacity-50">{{ salvandoMeusDados ? 'Salvando...' : 'Salvar contato' }}</button>
+              <button type="submit" :disabled="salvandoMeusDados" class="rounded-full bg-brand px-4 py-2 text-xs font-bold text-white hover:bg-brand-deep disabled:opacity-50">{{ salvandoMeusDados ? 'Salvando...' : 'Salvar dados' }}</button>
               <p v-if="erroMeusDados" class="text-xs text-brand-deep">{{ erroMeusDados }}</p>
               <p v-if="sucessoMeusDados" class="text-xs text-[#27500A]">{{ sucessoMeusDados }}</p>
             </div>
