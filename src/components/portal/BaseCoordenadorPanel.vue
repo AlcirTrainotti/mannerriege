@@ -11,6 +11,7 @@ import {
   statusAtletaOptions, statusAtletaLabel, statusAtletaClasses,
   posicaoOptions, posicaoLabel, categoriaPorNascimento,
   tipoEventoOptions, tipoEventoLabel, formatarHora,
+  vinculoAtletaOptions, vinculoAtletaLabel,
 } from '../../data/base.js'
 
 const props = defineProps({
@@ -97,6 +98,8 @@ function formAtletaVazio() {
     inscricaoId: '',
     parentesco: 'mãe/pai',
     respNome: '', respTelefone: '', respEmail: '', respSenha: '',
+    vinculo: 'projeto',
+    eventosSelecionados: [],
   }
 }
 const formAtleta = ref(formAtletaVazio())
@@ -106,7 +109,10 @@ async function abrirFormAtleta() {
   respEncontrado.value = null
   formAtleta.value = formAtletaVazio()
   mostrarFormAtleta.value = true
-  const { data } = await supabase.rpc('listar_inscricoes_experiencia_ativas')
+  const [{ data }] = await Promise.all([
+    supabase.rpc('listar_inscricoes_experiencia_ativas'),
+    carregarEventos(),
+  ])
   inscricoesAtivas.value = data ?? []
 }
 
@@ -174,6 +180,7 @@ async function salvarAtleta() {
       categoria_id: f.categoria_id, escola: f.escola.trim() || null,
       posicao: f.posicao || null,
       inscricao_experiencia_id: f.inscricaoId || null,
+      vinculo: f.vinculo,
     })
     .select()
     .single()
@@ -233,7 +240,14 @@ async function salvarAtleta() {
     await supabase.from('inscricoes_experiencia_base').update({ status: 'matricula' }).eq('id', f.inscricaoId)
   }
 
-  // 5. Atualiza os contatos locais pra já aparecer na lista sem precisar recarregar
+  // 5. Vincula aos eventos selecionados (se houver)
+  if (f.eventosSelecionados.length) {
+    await supabase.from('evento_participantes_base').insert(
+      f.eventosSelecionados.map((eventoId) => ({ evento_id: eventoId, atleta_id: novoAtleta.id }))
+    )
+  }
+
+  // 6. Atualiza os contatos locais pra já aparecer na lista sem precisar recarregar
   const nomeResp = respEncontrado.value?.nome ?? f.respNome.trim()
   const telResp = respEncontrado.value?.telefone ?? f.respTelefone.trim()
   const emailResp = respEncontrado.value?.email ?? (f.respEmail.trim() || null)
@@ -293,6 +307,33 @@ async function salvarEdicaoAtleta(atleta) {
     observacoes_gerais: f.observacoes_gerais.trim() || null,
   })
   editandoAtletaId.value = null
+}
+
+// ================================================================
+// Aba Atletas — promover um atleta "somente evento" a "atleta do
+// projeto" (mensalista), atribuindo um plano vigente
+// ================================================================
+const promovendoAtletaId = ref(null)
+const planoPromocao = ref('')
+
+function abrirPromocao(atleta) {
+  promovendoAtletaId.value = atleta.id
+  planoPromocao.value = planos.value.find((p) => p.padrao)?.id ?? planos.value[0]?.id ?? ''
+}
+
+async function confirmarPromocao(atleta) {
+  if (!planoPromocao.value) return
+  const { error: e1 } = await supabase.from('atletas_base').update({ vinculo: 'projeto' }).eq('id', atleta.id)
+  if (e1) {
+    alert('Não foi possível promover: ' + e1.message)
+    return
+  }
+  const { error: e2 } = await supabase.from('atleta_plano').insert({ atleta_id: atleta.id, plano_id: planoPromocao.value })
+  if (e2) {
+    alert('Vínculo atualizado, mas não consegui atribuir o plano: ' + e2.message)
+  }
+  atleta.vinculo = 'projeto'
+  promovendoAtletaId.value = null
 }
 
 // ================================================================
@@ -432,7 +473,11 @@ const eventos = ref([])
 const eventosCarregados = ref(false)
 const mostrarFormEvento = ref(false)
 const filtroEventoCategoria = ref('todas')
-const formEvento = ref({ categoria_id: '', tipo: 'treino', titulo: '', data: '', hora_inicio: '', hora_fim: '', local: '', plano_atividades: '', observacoes: '' })
+const formEvento = ref({ categoria_id: '', tipo: 'treino', titulo: '', data: '', hora_inicio: '', hora_fim: '', local: '', plano_id: '', plano_atividades: '', observacoes: '' })
+
+function planoDoEvento(evento) {
+  return planos.value.find((p) => p.id === evento.plano_id)
+}
 
 async function carregarEventos() {
   if (eventosCarregados.value) return
@@ -452,14 +497,45 @@ async function salvarEvento() {
   const { data, error } = await supabase.from('eventos_base').insert({
     categoria_id: f.categoria_id || null, tipo: f.tipo, titulo: f.titulo.trim(),
     data: f.data, hora_inicio: f.hora_inicio || null, hora_fim: f.hora_fim || null,
-    local: f.local.trim() || null, plano_atividades: f.plano_atividades.trim() || null,
+    local: f.local.trim() || null, plano_id: f.plano_id || null, plano_atividades: f.plano_atividades.trim() || null,
     observacoes: f.observacoes.trim() || null, criado_por: profile.value.id,
   }).select().single()
   if (!error) {
     eventos.value.unshift(data)
     mostrarFormEvento.value = false
-    formEvento.value = { categoria_id: '', tipo: 'treino', titulo: '', data: '', hora_inicio: '', hora_fim: '', local: '', plano_atividades: '', observacoes: '' }
+    formEvento.value = { categoria_id: '', tipo: 'treino', titulo: '', data: '', hora_inicio: '', hora_fim: '', local: '', plano_id: '', plano_atividades: '', observacoes: '' }
   }
+}
+
+const editandoEventoId = ref(null)
+const formEdicaoEvento = ref(null)
+
+function abrirEdicaoEvento(evento) {
+  editandoEventoId.value = evento.id
+  formEdicaoEvento.value = {
+    categoria_id: evento.categoria_id ?? '', tipo: evento.tipo, titulo: evento.titulo,
+    data: evento.data, hora_inicio: evento.hora_inicio ?? '', hora_fim: evento.hora_fim ?? '',
+    local: evento.local ?? '', plano_id: evento.plano_id ?? '',
+    plano_atividades: evento.plano_atividades ?? '', observacoes: evento.observacoes ?? '',
+  }
+}
+
+async function salvarEdicaoEvento(evento) {
+  const f = formEdicaoEvento.value
+  if (!f.titulo.trim() || !f.data) return
+  const patch = {
+    categoria_id: f.categoria_id || null, tipo: f.tipo, titulo: f.titulo.trim(),
+    data: f.data, hora_inicio: f.hora_inicio || null, hora_fim: f.hora_fim || null,
+    local: f.local.trim() || null, plano_id: f.plano_id || null,
+    plano_atividades: f.plano_atividades.trim() || null, observacoes: f.observacoes.trim() || null,
+  }
+  const { error } = await supabase.from('eventos_base').update(patch).eq('id', evento.id)
+  if (error) {
+    alert('Não foi possível salvar: ' + error.message)
+    return
+  }
+  Object.assign(evento, patch)
+  editandoEventoId.value = null
 }
 
 const eventoExpandidoId = ref(null)
@@ -631,6 +707,24 @@ async function excluirEvento(evento) {
         </div>
         <p class="text-[11px] text-ink-soft">A categoria é sugerida automaticamente pela data de nascimento — pode trocar se precisar.</p>
 
+        <p class="font-mono-label text-[9px] font-bold text-ink-soft pt-2">VÍNCULO</p>
+        <div class="flex flex-wrap gap-4">
+          <label v-for="v in vinculoAtletaOptions" :key="v.value" class="flex items-center gap-1.5 text-xs text-ink">
+            <input type="radio" :value="v.value" v-model="formAtleta.vinculo" class="h-3.5 w-3.5" />
+            {{ v.label }}
+          </label>
+        </div>
+        <p class="text-[11px] text-ink-soft">"Somente evento(s)" cadastra sem mensalidade — dá pra promover a atleta do projeto depois, na lista.</p>
+
+        <p class="font-mono-label text-[9px] font-bold text-ink-soft pt-2">EVENTOS (opcional)</p>
+        <div v-if="eventos.length" class="max-h-32 space-y-1.5 overflow-y-auto rounded-lg border border-ink/15 p-2.5">
+          <label v-for="e in eventos" :key="e.id" class="flex items-center gap-1.5 text-xs text-ink">
+            <input type="checkbox" :value="e.id" v-model="formAtleta.eventosSelecionados" class="h-3.5 w-3.5 rounded border-ink/30" />
+            {{ e.titulo }} — {{ tipoEventoLabel(e.tipo) }} · {{ formatarDataCurta(e.data) }}
+          </label>
+        </div>
+        <p v-else class="text-[11px] text-ink-soft">Nenhum evento cadastrado ainda — pode vincular depois pela aba Eventos.</p>
+
         <p class="font-mono-label text-[9px] font-bold text-ink-soft pt-2">RESPONSÁVEL</p>
         <div class="grid gap-3 sm:grid-cols-2">
           <input v-model="formAtleta.respNome" placeholder="Nome do responsável" :disabled="!!respEncontrado" class="rounded-lg border border-ink/15 px-3 py-2 text-sm sm:col-span-2 disabled:bg-paper-dim" />
@@ -674,9 +768,19 @@ async function excluirEvento(evento) {
               </p>
             </div>
             <div class="flex items-center gap-2">
+              <span :class="['rounded-full px-3 py-1 text-xs font-semibold', a.vinculo === 'evento' ? 'bg-gold-soft text-ink' : 'bg-ink/8 text-ink-soft']">{{ vinculoAtletaLabel(a.vinculo) }}</span>
               <span :class="['rounded-full px-3 py-1 text-xs font-semibold', statusAtletaClasses(a.status)]">{{ statusAtletaLabel(a.status) }}</span>
+              <button v-if="a.vinculo === 'evento'" class="text-xs font-semibold text-brand-deep hover:underline" @click="promovendoAtletaId === a.id ? (promovendoAtletaId = null) : abrirPromocao(a)">{{ promovendoAtletaId === a.id ? 'Fechar' : 'Tornar do projeto' }}</button>
               <button class="text-xs font-semibold text-brand-deep hover:underline" @click="editandoAtletaId === a.id ? (editandoAtletaId = null) : abrirEdicaoAtleta(a)">{{ editandoAtletaId === a.id ? 'Fechar' : 'Editar' }}</button>
             </div>
+          </div>
+
+          <div v-if="promovendoAtletaId === a.id" class="mt-3 flex flex-wrap items-center gap-2 rounded-xl bg-paper-dim p-4">
+            <span class="text-xs text-ink-soft">Vira mensalista no plano:</span>
+            <select v-model="planoPromocao" class="rounded-lg border border-ink/15 bg-white px-2 py-1.5 text-xs">
+              <option v-for="p in planos.filter((pl) => pl.ativo)" :key="p.id" :value="p.id">{{ p.nome }} ({{ brl(p.valor_mensal) }}/mês)</option>
+            </select>
+            <button type="button" class="rounded-full bg-brand px-3 py-1.5 text-xs font-bold text-white hover:bg-brand-deep" @click="confirmarPromocao(a)">Confirmar</button>
           </div>
 
           <form v-if="editandoAtletaId === a.id && formEdicaoAtleta" class="mt-3 space-y-3 rounded-xl bg-paper-dim p-4" @submit.prevent="salvarEdicaoAtleta(a)">
@@ -732,6 +836,10 @@ async function excluirEvento(evento) {
           <input v-model="formEvento.local" placeholder="Local" class="rounded-lg border border-ink/15 px-3 py-2 text-sm" />
           <input v-model="formEvento.hora_inicio" type="time" placeholder="Início" class="rounded-lg border border-ink/15 px-3 py-2 text-sm" />
           <input v-model="formEvento.hora_fim" type="time" placeholder="Fim" class="rounded-lg border border-ink/15 px-3 py-2 text-sm" />
+          <select v-model="formEvento.plano_id" class="rounded-lg border border-ink/15 px-3 py-2 text-sm sm:col-span-2">
+            <option value="">Sem plano vinculado</option>
+            <option v-for="p in planos" :key="p.id" :value="p.id">{{ p.nome }} ({{ brl(p.valor_mensal) }}/mês)</option>
+          </select>
         </div>
         <textarea v-model="formEvento.plano_atividades" placeholder="Plano de atividades / o que será trabalhado" rows="2" class="w-full rounded-lg border border-ink/15 px-3 py-2 text-sm"></textarea>
         <textarea v-model="formEvento.observacoes" placeholder="Observações (opcional)" rows="2" class="w-full rounded-lg border border-ink/15 px-3 py-2 text-sm"></textarea>
@@ -756,10 +864,38 @@ async function excluirEvento(evento) {
                 <span v-if="e.hora_inicio"> · {{ formatarHora(e.hora_inicio) }}<span v-if="e.hora_fim">–{{ formatarHora(e.hora_fim) }}</span></span>
                 <span v-if="e.local"> · {{ e.local }}</span>
                 · {{ nomeCategoria(categoriaDoAtleta({ categoria_id: e.categoria_id })) === '—' ? 'Todas as categorias' : nomeCategoria(categoriaDoAtleta({ categoria_id: e.categoria_id })) }}
+                <span v-if="planoDoEvento(e)"> · plano {{ planoDoEvento(e).nome }}</span>
               </p>
             </div>
-            <button type="button" class="text-xs font-semibold text-brand-deep hover:underline" @click.stop="abrirEvento(e)">{{ eventoExpandidoId === e.id ? 'Fechar' : 'Gerenciar' }}</button>
+            <div class="flex items-center gap-2">
+              <button type="button" class="text-xs font-semibold text-brand-deep hover:underline" @click.stop="editandoEventoId === e.id ? (editandoEventoId = null) : abrirEdicaoEvento(e)">{{ editandoEventoId === e.id ? 'Fechar' : 'Editar' }}</button>
+              <button type="button" class="text-xs font-semibold text-brand-deep hover:underline" @click.stop="abrirEvento(e)">{{ eventoExpandidoId === e.id ? 'Fechar' : 'Gerenciar' }}</button>
+            </div>
           </div>
+
+          <form v-if="editandoEventoId === e.id && formEdicaoEvento" class="mt-3 space-y-3 rounded-xl bg-paper-dim p-4" @submit.prevent="salvarEdicaoEvento(e)">
+            <div class="grid gap-3 sm:grid-cols-2">
+              <input v-model="formEdicaoEvento.titulo" placeholder="Título" required class="rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm sm:col-span-2" />
+              <select v-model="formEdicaoEvento.tipo" class="rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm">
+                <option v-for="t in tipoEventoOptions" :key="t.value" :value="t.value">{{ t.label }}</option>
+              </select>
+              <select v-model="formEdicaoEvento.categoria_id" class="rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm">
+                <option value="">Todas as categorias</option>
+                <option v-for="c in categorias" :key="c.id" :value="c.id">{{ nomeCategoria(c) }}</option>
+              </select>
+              <input v-model="formEdicaoEvento.data" type="date" required class="rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm" />
+              <input v-model="formEdicaoEvento.local" placeholder="Local" class="rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm" />
+              <input v-model="formEdicaoEvento.hora_inicio" type="time" class="rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm" />
+              <input v-model="formEdicaoEvento.hora_fim" type="time" class="rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm" />
+              <select v-model="formEdicaoEvento.plano_id" class="rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm sm:col-span-2">
+                <option value="">Sem plano vinculado</option>
+                <option v-for="p in planos" :key="p.id" :value="p.id">{{ p.nome }} ({{ brl(p.valor_mensal) }}/mês)</option>
+              </select>
+            </div>
+            <textarea v-model="formEdicaoEvento.plano_atividades" placeholder="Plano de atividades / o que será trabalhado" rows="2" class="w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm"></textarea>
+            <textarea v-model="formEdicaoEvento.observacoes" placeholder="Observações (opcional)" rows="2" class="w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm"></textarea>
+            <button type="submit" class="rounded-full bg-brand px-4 py-2 text-xs font-bold text-white hover:bg-brand-deep">Salvar</button>
+          </form>
 
           <div v-if="eventoExpandidoId === e.id" class="mt-4 space-y-4 rounded-xl bg-paper-dim p-4">
             <p v-if="e.plano_atividades" class="text-xs text-ink"><strong>Atividades:</strong> {{ e.plano_atividades }}</p>

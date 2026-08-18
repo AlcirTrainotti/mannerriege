@@ -18,6 +18,15 @@ export function statusAtletaClasses(v) {
   return 'bg-ink/8 text-ink-soft' // inativo
 }
 
+export const vinculoAtletaOptions = [
+  { value: 'projeto', label: 'Atleta do projeto (mensalista)' },
+  { value: 'evento', label: 'Somente evento(s)' },
+]
+
+export function vinculoAtletaLabel(v) {
+  return vinculoAtletaOptions.find((o) => o.value === v)?.label ?? v
+}
+
 export const sexoOptions = [
   { value: 'masculino', label: 'Masculino' },
   { value: 'feminino', label: 'Feminino' },
