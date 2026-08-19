@@ -6,6 +6,7 @@ import { useAuth } from '../../lib/useAuth.js'
 import Icon from '../Icon.vue'
 import AvatarUpload from './AvatarUpload.vue'
 import AtletaEvolucaoDashboard from './AtletaEvolucaoDashboard.vue'
+import StarRating from './StarRating.vue'
 import { formatarData } from '../../lib/categoria.js'
 import { brl, formatarDataCurta } from '../../data/campeonatos.js'
 import { formatarCompetencia } from '../../data/financeiro.js'
@@ -13,7 +14,7 @@ import {
   statusAtletaLabel, statusAtletaClasses, idadeAtual, nomeCategoria,
   mensalidadeBaseStatusLabel, mensalidadeBaseStatusClasses,
   posicaoLabel, tipoEventoLabel, tipoAvaliacaoLabel, statusFinanceiroBaseClasses,
-  tempoNoProjeto, destinoMensagemOptions, destinoMensagemLabel,
+  tempoNoProjeto, destinoMensagemOptions, destinoMensagemLabel, estrelasFromNota,
 } from '../../data/base.js'
 
 const { profile, logout } = useAuth()
@@ -524,15 +525,17 @@ onMounted(() => {
                   <div class="flex items-center gap-2">
                     <div class="text-right">
                       <p v-if="p.presente !== null" :class="p.presente ? 'text-[#27500A]' : 'text-brand-deep'">{{ p.presente ? 'presente' : 'ausente' }}</p>
-                      <p v-if="p.desempenho_nota !== null" class="text-ink-soft">nota {{ p.desempenho_nota }}</p>
+                      <StarRating v-if="p.desempenho_nota !== null" :model-value="estrelasFromNota(p.desempenho_nota)" readonly size="h-3 w-3" />
                     </div>
-                    <span v-if="p.evento.plano_atividades || p.desempenho_obs" class="text-ink-soft">{{ p.expandido ? '▲' : '▼' }}</span>
+                    <span v-if="p.evento.objetivo || p.evento.plano_atividades || p.desempenho_obs" class="text-ink-soft">{{ p.expandido ? '▲' : '▼' }}</span>
                   </div>
                 </div>
                 <template v-if="p.expandido">
-                  <p v-if="p.evento.plano_atividades" class="mt-1 text-ink-soft"><strong class="text-ink">O que foi feito:</strong> {{ p.evento.plano_atividades }}</p>
+                  <p v-if="p.evento.objetivo" class="mt-1 text-ink-soft"><strong class="text-ink">Objetivo:</strong> {{ p.evento.objetivo }}</p>
+                  <p v-if="p.evento.plano_atividades" class="mt-0.5 text-ink-soft"><strong class="text-ink">O que foi feito:</strong> {{ p.evento.plano_atividades }}</p>
                   <p v-if="p.desempenho_obs" class="mt-0.5 text-ink-soft"><strong class="text-ink">Observação do professor:</strong> {{ p.desempenho_obs }}</p>
-                  <p v-if="!p.evento.plano_atividades && !p.desempenho_obs" class="mt-1 text-ink-soft">Sem observações registradas nessa aula.</p>
+                  <audio v-if="p.desempenho_obs_audio_url" :src="p.desempenho_obs_audio_url" controls class="mt-1 h-7" />
+                  <p v-if="!p.evento.objetivo && !p.evento.plano_atividades && !p.desempenho_obs && !p.desempenho_obs_audio_url" class="mt-1 text-ink-soft">Sem observações registradas nessa aula.</p>
                 </template>
               </div>
             </div>

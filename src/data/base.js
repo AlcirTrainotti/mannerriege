@@ -201,3 +201,36 @@ export const destinoMensagemOptions = [
 export function destinoMensagemLabel(v) {
   return destinoMensagemOptions.find((d) => d.value === v)?.label ?? v
 }
+
+// --- Aula do professor: estrelinhas <-> nota (0-10) ---
+// A avaliação do dia é feita com o StarRating.vue (1 a 5 estrelas),
+// mas o banco continua guardando desempenho_nota em 0-10 — mesma
+// escala já usada no dashboard de evolução do atleta (AtletaEvolucaoDashboard,
+// LineChart) — pra não ter que tocar em nada que já lê esse campo.
+// 1 estrela = 2, 2 = 4, 3 = 6, 4 = 8, 5 = 10.
+export function estrelasFromNota(nota) {
+  if (nota === null || nota === undefined) return 0
+  return Math.round(Number(nota) / 2)
+}
+
+export function notaFromEstrelas(estrelas) {
+  if (!estrelas) return null
+  return estrelas * 2
+}
+
+// --- Estado de execução do treino (fluxo do professor) ---
+export const statusExecucaoOptions = [
+  { value: 'planejado', label: 'Planejado' },
+  { value: 'em_andamento', label: 'Em andamento' },
+  { value: 'concluido', label: 'Concluído' },
+]
+
+export function statusExecucaoLabel(v) {
+  return statusExecucaoOptions.find((s) => s.value === v)?.label ?? v
+}
+
+export function statusExecucaoClasses(v) {
+  if (v === 'em_andamento') return 'bg-gold-soft text-ink'
+  if (v === 'concluido') return 'bg-[#EAF3DE] text-[#27500A]'
+  return 'bg-ink/8 text-ink-soft' // planejado
+}
