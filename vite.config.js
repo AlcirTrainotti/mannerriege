@@ -17,7 +17,11 @@ export default defineConfig({
         short_name: 'Mannerriege',
         description: 'Site institucional e portal de associados da Mannerriege Vôlei — Associação Desportiva de Voleibol de Joinville.',
         lang: 'pt-BR',
-        start_url: '/',
+        // Abre direto no portal (login, ou o painel certo se ja estiver
+        // logado) em vez da home institucional — e onde quem instala o
+        // app no celular precisa cair. Rota com hash por causa do
+        // createWebHashHistory do vue-router (src/router/index.js).
+        start_url: '/#/portal',
         scope: '/',
         display: 'standalone',
         // --color-brand / --color-paper (src/style.css) — mesma paleta do site.
