@@ -204,10 +204,26 @@ async function removerExercicio(ex) {
   if (!error) exerciciosDoEvento.value = exerciciosDoEvento.value.filter((e) => e.id !== ex.id)
 }
 
+// --- Validação: só dá pra iniciar o treino com o planejamento
+// completo (objetivo + pelo menos 1 exercício + expectativa de cada
+// atleta). A chamada continua fora dessa trava — deliberado, atleta
+// pode chegar atrasado (ver memória do projeto).
+const pendenciasPreparacao = computed(() => {
+  if (!eventoSelecionado.value) return []
+  const pendencias = []
+  if (!eventoSelecionado.value.objetivo?.trim()) pendencias.push('Defina o objetivo da aula.')
+  if (!exerciciosDoEvento.value.length) pendencias.push('Adicione pelo menos um exercício.')
+  const semExpectativa = atletasDoEventoSelecionado.value.filter((a) => !participanteDoAtleta(a.id).expectativa?.trim())
+  if (semExpectativa.length) pendencias.push(`Defina o que espera de ${semExpectativa.length === 1 ? semExpectativa[0].nome : semExpectativa.length + ' atletas'}.`)
+  return pendencias
+})
+const preparacaoCompleta = computed(() => pendenciasPreparacao.value.length === 0)
+
 // --- Iniciar / finalizar / reabrir o treino ---
 const alterandoStatus = ref(false)
 
 async function iniciarTreino() {
+  if (!preparacaoCompleta.value) return
   alterandoStatus.value = true
   const { data, error } = await supabase.from('eventos_base')
     .update({ status_execucao: 'em_andamento', iniciado_em: new Date().toISOString() })
@@ -583,10 +599,21 @@ async function trocarMinhaSenha() {
 
         <!-- Ações de fluxo -->
         <div v-if="eventoSelecionado.status_execucao === 'planejado'" class="rounded-2xl bg-white p-5 text-center shadow-card">
-          <p class="text-xs text-ink-soft">Feita a chamada, é só iniciar o treino — o cronômetro da aula começa a contar.</p>
-          <button type="button" :disabled="alterandoStatus" class="mt-3 rounded-full bg-brand px-6 py-2.5 text-sm font-bold text-white hover:bg-brand-deep disabled:opacity-50" @click="iniciarTreino">
-            ▶ Iniciar treino
-          </button>
+          <template v-if="!preparacaoCompleta">
+            <p class="text-xs font-semibold text-brand-deep">Termine o planejamento pra poder iniciar o treino:</p>
+            <ul class="mx-auto mt-2 max-w-sm space-y-1 text-left text-xs text-ink-soft">
+              <li v-for="(p, i) in pendenciasPreparacao" :key="i">• {{ p }}</li>
+            </ul>
+            <button type="button" disabled class="mt-3 rounded-full bg-ink/15 px-6 py-2.5 text-sm font-bold text-ink-soft/60">
+              ▶ Iniciar treino
+            </button>
+          </template>
+          <template v-else>
+            <p class="text-xs text-ink-soft">Planejamento completo! Feita a chamada, é só iniciar o treino — o cronômetro da aula começa a contar.</p>
+            <button type="button" :disabled="alterandoStatus" class="mt-3 rounded-full bg-brand px-6 py-2.5 text-sm font-bold text-white hover:bg-brand-deep disabled:opacity-50" @click="iniciarTreino">
+              ▶ Iniciar treino
+            </button>
+          </template>
         </div>
 
         <!-- Avaliação (durante o treino) -->
