@@ -389,15 +389,16 @@ async function enviarMensagem() {
                     <p v-if="p.presente !== null" :class="p.presente ? 'text-[#27500A]' : 'text-brand-deep'">{{ p.presente ? 'presente' : 'ausente' }}</p>
                     <StarRating v-if="p.desempenho_nota !== null" :model-value="estrelasFromNota(p.desempenho_nota)" readonly size="h-3 w-3" />
                   </div>
-                  <span v-if="p.evento.objetivo || p.evento.plano_atividades || p.desempenho_obs" class="text-ink-soft">{{ p.expandido ? '▲' : '▼' }}</span>
+                  <span v-if="p.evento.objetivo || p.evento.plano_atividades || p.expectativa || p.desempenho_obs" class="text-ink-soft">{{ p.expandido ? '▲' : '▼' }}</span>
                 </div>
               </div>
               <template v-if="p.expandido">
                 <p v-if="p.evento.objetivo" class="mt-1 text-ink-soft"><strong class="text-ink">Objetivo:</strong> {{ p.evento.objetivo }}</p>
                 <p v-if="p.evento.plano_atividades" class="mt-0.5 text-ink-soft"><strong class="text-ink">O que foi feito:</strong> {{ p.evento.plano_atividades }}</p>
+                <p v-if="p.expectativa" class="mt-0.5 text-ink-soft"><strong class="text-ink">O que era esperado de mim:</strong> {{ p.expectativa }}</p>
                 <p v-if="p.desempenho_obs" class="mt-0.5 text-ink-soft"><strong class="text-ink">Observação do professor:</strong> {{ p.desempenho_obs }}</p>
                 <audio v-if="p.desempenho_obs_audio_url" :src="p.desempenho_obs_audio_url" controls class="mt-1 h-7" />
-                <p v-if="!p.evento.objetivo && !p.evento.plano_atividades && !p.desempenho_obs && !p.desempenho_obs_audio_url" class="mt-1 text-ink-soft">Sem observações registradas nessa aula.</p>
+                <p v-if="!p.evento.objetivo && !p.evento.plano_atividades && !p.expectativa && !p.desempenho_obs && !p.desempenho_obs_audio_url" class="mt-1 text-ink-soft">Sem observações registradas nessa aula.</p>
               </template>
             </div>
           </div>

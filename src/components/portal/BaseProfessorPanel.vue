@@ -8,7 +8,7 @@ import StarRating from './StarRating.vue'
 import AudioRecorder from './AudioRecorder.vue'
 import {
   idadeAtual, nomeCategoria, statusAtletaLabel, statusAtletaClasses,
-  posicaoLabel, tipoEventoLabel, formatarHora,
+  posicaoLabel, tipoEventoLabel, tipoEventoOptions, formatarHora,
   estrelasFromNota, notaFromEstrelas, statusExecucaoLabel, statusExecucaoClasses,
 } from '../../data/base.js'
 import { formatarDataCurta } from '../../data/campeonatos.js'
@@ -58,6 +58,7 @@ const totalMensagensNaoLidas = computed(() => canaisMensagens.value.reduce((s, c
 onMounted(() => {
   carregar()
   carregarResumoMensagens()
+  carregarEventos()
 })
 
 // ================================================================
@@ -78,7 +79,47 @@ async function carregarEventos() {
   eventosCarregados.value = true
 }
 
+// --- Filtro da agenda: "a preparar" ajuda a achar rápido as próximas
+// aulas que ainda precisam de planejamento (objetivo/atividades/expectativa).
+const filtroAulas = ref('a_preparar')
+const eventosFiltrados = computed(() => {
+  let lista = eventos.value
+  if (filtroAulas.value !== 'todas') lista = lista.filter((e) => e.status_execucao === filtroAulas.value)
+  // Pras "a preparar" faz mais sentido mostrar a mais próxima primeiro
+  // (ordem ascendente); nos outros filtros mantém a mais recente no topo.
+  if (filtroAulas.value === 'planejado') lista = [...lista].sort((a, b) => a.data.localeCompare(b.data))
+  return lista
+})
+
 const eventoSelecionado = computed(() => eventos.value.find((e) => e.id === eventoSelecionadoId.value) ?? null)
+
+// --- Agenda: o professor também pode criar suas próprias aulas, sem
+// depender da coordenação cadastrar antes.
+const mostrarFormNovaAula = ref(false)
+const criandoAula = ref(false)
+const formNovaAula = ref({ categoria_id: '', tipo: 'treino', titulo: '', data: '', hora_inicio: '', hora_fim: '', local: '' })
+
+function abrirFormNovaAula() {
+  formNovaAula.value = { categoria_id: '', tipo: 'treino', titulo: '', data: '', hora_inicio: '', hora_fim: '', local: '' }
+  mostrarFormNovaAula.value = true
+}
+
+async function salvarNovaAula() {
+  const f = formNovaAula.value
+  if (!f.titulo.trim() || !f.data) return
+  criandoAula.value = true
+  const { data, error } = await supabase.from('eventos_base').insert({
+    categoria_id: f.categoria_id || null, tipo: f.tipo, titulo: f.titulo.trim(),
+    data: f.data, hora_inicio: f.hora_inicio || null, hora_fim: f.hora_fim || null,
+    local: f.local.trim() || null, criado_por: profile.value.id,
+  }).select().single()
+  criandoAula.value = false
+  if (error) return
+  eventos.value.unshift(data)
+  mostrarFormNovaAula.value = false
+  filtroAulas.value = 'planejado'
+  selecionarEvento(data)
+}
 
 const atletasDoEventoSelecionado = computed(() => {
   if (!eventoSelecionado.value) return []
@@ -101,7 +142,7 @@ async function selecionarEvento(evento) {
 }
 
 function participanteDoAtleta(atletaId) {
-  return participantesDoEvento.value[atletaId] ?? { presente: null, desempenho_nota: null, desempenho_obs: '', desempenho_obs_audio_url: null }
+  return participantesDoEvento.value[atletaId] ?? { presente: null, desempenho_nota: null, desempenho_obs: '', desempenho_obs_audio_url: null, expectativa: '' }
 }
 
 async function salvarParticipante(atletaId, patch) {
@@ -112,6 +153,7 @@ async function salvarParticipante(atletaId, patch) {
     desempenho_nota: patch.desempenho_nota !== undefined ? patch.desempenho_nota : atual.desempenho_nota,
     desempenho_obs: patch.desempenho_obs !== undefined ? patch.desempenho_obs : atual.desempenho_obs,
     desempenho_obs_audio_url: patch.desempenho_obs_audio_url !== undefined ? patch.desempenho_obs_audio_url : atual.desempenho_obs_audio_url,
+    expectativa: patch.expectativa !== undefined ? patch.expectativa : atual.expectativa,
     atualizado_em: new Date().toISOString(),
   }
   const { data, error } = await supabase
@@ -373,21 +415,58 @@ async function trocarMinhaSenha() {
 
     <!-- ===== MINHAS AULAS ===== -->
     <div v-else class="mt-6 grid gap-4 lg:grid-cols-[18rem_1fr]">
-      <div class="max-h-[40rem] overflow-y-auto rounded-2xl bg-white shadow-card">
-        <button
-          v-for="e in eventos" :key="e.id"
-          type="button"
-          class="block w-full border-b border-ink/8 px-4 py-3 text-left text-xs last:border-0 hover:bg-paper-dim"
-          :class="eventoSelecionadoId === e.id ? 'bg-paper-dim' : ''"
-          @click="selecionarEvento(e)"
-        >
-          <div class="flex items-center justify-between gap-2">
-            <p class="font-semibold text-ink">{{ e.titulo }}</p>
-            <span :class="['flex-shrink-0 rounded-full px-2 py-0.5 text-[9px] font-semibold', statusExecucaoClasses(e.status_execucao)]">{{ statusExecucaoLabel(e.status_execucao) }}</span>
-          </div>
-          <p class="text-ink-soft">{{ tipoEventoLabel(e.tipo) }} · {{ formatarDataCurta(e.data) }}</p>
+      <div>
+        <div class="flex flex-wrap gap-1.5">
+          <button class="rounded-full px-3 py-1.5 text-[11px] font-semibold transition-colors" :class="filtroAulas === 'a_preparar' ? 'bg-ink text-white' : 'bg-paper-dim text-ink-soft hover:bg-ink/10'" @click="filtroAulas = 'a_preparar'">A preparar</button>
+          <button class="rounded-full px-3 py-1.5 text-[11px] font-semibold transition-colors" :class="filtroAulas === 'todas' ? 'bg-ink text-white' : 'bg-paper-dim text-ink-soft hover:bg-ink/10'" @click="filtroAulas = 'todas'">Todas</button>
+          <button class="rounded-full px-3 py-1.5 text-[11px] font-semibold transition-colors" :class="filtroAulas === 'em_andamento' ? 'bg-ink text-white' : 'bg-paper-dim text-ink-soft hover:bg-ink/10'" @click="filtroAulas = 'em_andamento'">Em andamento</button>
+          <button class="rounded-full px-3 py-1.5 text-[11px] font-semibold transition-colors" :class="filtroAulas === 'concluido' ? 'bg-ink text-white' : 'bg-paper-dim text-ink-soft hover:bg-ink/10'" @click="filtroAulas = 'concluido'">Concluídas</button>
+        </div>
+
+        <button type="button" class="mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-ink/20 px-4 py-2.5 text-xs font-semibold text-ink-soft hover:border-brand hover:text-brand-deep" @click="abrirFormNovaAula">
+          + Nova aula na agenda
         </button>
-        <p v-if="eventosCarregados && eventos.length === 0" class="px-4 py-6 text-center text-xs text-ink-soft">Nenhum evento cadastrado ainda — a coordenação cadastra em Categorias de Base → Eventos.</p>
+
+        <form v-if="mostrarFormNovaAula" class="mt-2 space-y-2 rounded-2xl bg-white p-4 shadow-card" @submit.prevent="salvarNovaAula">
+          <p class="font-mono-label text-[9px] font-bold text-ink-soft">NOVA AULA</p>
+          <input v-model="formNovaAula.titulo" placeholder="Título (ex: Treino de saque e recepção)" required class="w-full rounded-lg border border-ink/15 px-3 py-2 text-xs" />
+          <div class="grid grid-cols-2 gap-2">
+            <input v-model="formNovaAula.data" type="date" required class="rounded-lg border border-ink/15 px-3 py-2 text-xs" />
+            <select v-model="formNovaAula.tipo" class="rounded-lg border border-ink/15 px-3 py-2 text-xs">
+              <option v-for="t in tipoEventoOptions" :key="t.value" :value="t.value">{{ t.label }}</option>
+            </select>
+            <input v-model="formNovaAula.hora_inicio" type="time" class="rounded-lg border border-ink/15 px-3 py-2 text-xs" />
+            <input v-model="formNovaAula.hora_fim" type="time" class="rounded-lg border border-ink/15 px-3 py-2 text-xs" />
+          </div>
+          <select v-model="formNovaAula.categoria_id" class="w-full rounded-lg border border-ink/15 px-3 py-2 text-xs">
+            <option value="">Todas as categorias</option>
+            <option v-for="c in categorias" :key="c.id" :value="c.id">{{ nomeCategoria(c) }}</option>
+          </select>
+          <input v-model="formNovaAula.local" placeholder="Local (opcional)" class="w-full rounded-lg border border-ink/15 px-3 py-2 text-xs" />
+          <div class="flex items-center gap-2 pt-1">
+            <button type="submit" :disabled="criandoAula" class="rounded-full bg-brand px-4 py-2 text-xs font-bold text-white hover:bg-brand-deep disabled:opacity-50">{{ criandoAula ? 'Criando...' : 'Criar e planejar' }}</button>
+            <button type="button" class="text-xs text-ink-soft hover:text-ink" @click="mostrarFormNovaAula = false">Cancelar</button>
+          </div>
+        </form>
+
+        <div class="mt-2 max-h-[36rem] overflow-y-auto rounded-2xl bg-white shadow-card">
+          <button
+            v-for="e in eventosFiltrados" :key="e.id"
+            type="button"
+            class="block w-full border-b border-ink/8 px-4 py-3 text-left text-xs last:border-0 hover:bg-paper-dim"
+            :class="eventoSelecionadoId === e.id ? 'bg-paper-dim' : ''"
+            @click="selecionarEvento(e)"
+          >
+            <div class="flex items-center justify-between gap-2">
+              <p class="font-semibold text-ink">{{ e.titulo }}</p>
+              <span :class="['flex-shrink-0 rounded-full px-2 py-0.5 text-[9px] font-semibold', statusExecucaoClasses(e.status_execucao)]">{{ statusExecucaoLabel(e.status_execucao) }}</span>
+            </div>
+            <p class="text-ink-soft">{{ tipoEventoLabel(e.tipo) }} · {{ formatarDataCurta(e.data) }}</p>
+          </button>
+          <p v-if="eventosCarregados && eventosFiltrados.length === 0" class="px-4 py-6 text-center text-xs text-ink-soft">
+            {{ filtroAulas === 'todas' ? 'Nenhuma aula cadastrada ainda — crie uma acima ou peça pra coordenação cadastrar.' : 'Nenhuma aula nesse filtro.' }}
+          </p>
+        </div>
       </div>
 
       <div v-if="carregandoDetalheEvento" class="rounded-2xl border border-dashed border-ink/15 p-8 text-center text-sm text-ink-soft">Carregando...</div>
@@ -406,9 +485,10 @@ async function trocarMinhaSenha() {
           </p>
         </div>
 
-        <!-- Preparo da aula -->
+        <!-- Planejamento da aula -->
         <div class="rounded-2xl bg-white p-5 shadow-card">
-          <p class="font-mono-label text-[9px] font-bold text-ink-soft">PREPARO DA AULA</p>
+          <p class="font-mono-label text-[9px] font-bold text-ink-soft">PLANEJAMENTO DA AULA</p>
+          <p class="mt-0.5 text-xs text-ink-soft">Prepare com antecedência: o objetivo, as atividades e o que espera de cada atleta.</p>
 
           <div class="mt-3">
             <label class="text-xs font-semibold text-ink-soft">Objetivo da aula</label>
@@ -453,6 +533,23 @@ async function trocarMinhaSenha() {
               <input v-model.number="novoExercicio.duracao_min" type="number" min="0" placeholder="Min" class="rounded-lg border border-ink/15 px-3 py-2 text-xs" />
               <button type="submit" :disabled="salvandoExercicio || !novoExercicio.nome.trim()" class="rounded-full bg-ink px-4 py-2 text-xs font-bold text-white hover:bg-ink/90 disabled:opacity-50">+ Add</button>
             </form>
+          </div>
+
+          <div class="mt-4 border-t border-ink/10 pt-3">
+            <p class="text-xs font-semibold text-ink-soft">O que espero de cada atleta nessa aula</p>
+            <p class="mt-0.5 text-[11px] text-ink-soft">Uma meta ou foco individual — dá pra definir antes do treino e ajustar depois.</p>
+            <div class="mt-2 divide-y divide-ink/8 rounded-xl bg-paper-dim">
+              <div v-for="a in atletasDoEventoSelecionado" :key="a.id" class="px-4 py-2.5">
+                <p class="text-xs font-semibold text-ink">{{ a.nome }}</p>
+                <textarea
+                  :value="participanteDoAtleta(a.id).expectativa"
+                  placeholder="Ex: melhorar a consistência do saque por baixo"
+                  rows="1"
+                  class="mt-1 w-full rounded-lg border border-ink/15 bg-white px-3 py-1.5 text-xs"
+                  @change="(ev) => salvarParticipante(a.id, { expectativa: ev.target.value })"
+                ></textarea>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -527,6 +624,7 @@ async function trocarMinhaSenha() {
                   @update:model-value="(n) => salvarEstrelasAtleta(a.id, n)"
                 />
               </div>
+              <p v-if="participanteDoAtleta(a.id).expectativa" class="mt-1 text-[11px] text-ink-soft"><strong class="text-ink">Esperado:</strong> {{ participanteDoAtleta(a.id).expectativa }}</p>
               <textarea
                 :value="participanteDoAtleta(a.id).desempenho_obs"
                 placeholder="Observação sobre este atleta..."
@@ -580,7 +678,8 @@ async function trocarMinhaSenha() {
             <div v-for="a in atletasDoEventoSelecionado" :key="a.id" class="flex flex-wrap items-center justify-between gap-2 py-2 text-xs">
               <div>
                 <p class="font-semibold text-ink">{{ a.nome }} <span :class="participanteDoAtleta(a.id).presente ? 'text-[#27500A]' : 'text-brand-deep'">· {{ participanteDoAtleta(a.id).presente ? 'presente' : 'ausente' }}</span></p>
-                <p v-if="participanteDoAtleta(a.id).desempenho_obs" class="text-ink-soft">{{ participanteDoAtleta(a.id).desempenho_obs }}</p>
+                <p v-if="participanteDoAtleta(a.id).expectativa" class="text-ink-soft"><strong class="text-ink">Esperado:</strong> {{ participanteDoAtleta(a.id).expectativa }}</p>
+                <p v-if="participanteDoAtleta(a.id).desempenho_obs" class="text-ink-soft"><strong class="text-ink">Observação:</strong> {{ participanteDoAtleta(a.id).desempenho_obs }}</p>
                 <audio v-if="participanteDoAtleta(a.id).desempenho_obs_audio_url" :src="participanteDoAtleta(a.id).desempenho_obs_audio_url" controls class="mt-1 h-7" />
               </div>
               <StarRating :model-value="estrelasFromNota(participanteDoAtleta(a.id).desempenho_nota)" readonly size="h-4 w-4" />
